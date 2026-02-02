@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
+// Force git update
 export async function DELETE(
     request: Request,
     { params }: { params: Promise<{ id: string }> }
