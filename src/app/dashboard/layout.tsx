@@ -9,6 +9,7 @@ import { ToastProvider } from "@/components/ui/Toast";
 import { CelebrationProvider } from "@/components/ui/Celebration";
 import { FocusModeProvider } from "@/components/ui/FocusMode";
 import { SkeletonStyles } from "@/components/ui/Skeleton";
+import DashboardPrefetcher from "@/components/dashboard/DashboardPrefetcher";
 
 // Lazy load non-critical components
 const CommandPalette = dynamic(() => import("@/components/ui/CommandPalette"), {
@@ -99,6 +100,7 @@ export default function DashboardLayout({
                 <CelebrationProvider>
                     <FocusModeProvider>
                         <SidebarProvider>
+                            <DashboardPrefetcher />
                             <DashboardContent>{children}</DashboardContent>
                         </SidebarProvider>
                     </FocusModeProvider>
