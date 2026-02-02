@@ -37,12 +37,11 @@ export default function QuickNotesWidget() {
                 position: "absolute",
                 top: "-10px",
                 left: "50%",
-                transform: "translateX(-50%)",
+                transform: "translateX(-50%) rotate(-1deg)",
                 width: "40%",
                 height: "24px",
                 background: "rgba(255,255,255,0.4)",
-                boxShadow: "0 1px 2px rgba(0,0,0,0.1)",
-                transform: "translateX(-50%) rotate(-1deg)"
+                boxShadow: "0 1px 2px rgba(0,0,0,0.1)"
             }} />
 
             <div style={{

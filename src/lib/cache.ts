@@ -22,9 +22,14 @@ export const CACHE_DURATIONS = {
 
 // Revalidation helper - call after mutations
 export async function revalidateCache(tags: string[]) {
-    const { revalidateTag } = await import("next/cache");
-    for (const tag of tags) {
-        revalidateTag(tag);
+    try {
+        const { revalidateTag } = await import("next/cache");
+        for (const tag of tags) {
+            await revalidateTag(tag, "max");
+        }
+    } catch (e) {
+        // Ignore errors in client-side context where revalidateTag isn't available
+        console.warn("revalidateCache called in non-server context:", e);
     }
 }
 
