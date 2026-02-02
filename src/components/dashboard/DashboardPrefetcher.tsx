@@ -38,6 +38,27 @@ export default function DashboardPrefetcher() {
         dedupingInterval: 60000,
     });
 
+    // Phase 2: Other Data (Directory, Attendance, Leaves, Announcements)
+    useSWR(shouldFetch ? "/api/users" : null, fetcher, {
+        revalidateOnFocus: false,
+        dedupingInterval: 60000,
+    });
+
+    useSWR(shouldFetch ? "/api/attendance" : null, fetcher, {
+        revalidateOnFocus: false,
+        dedupingInterval: 60000,
+    });
+
+    useSWR(shouldFetch ? "/api/leaves" : null, fetcher, {
+        revalidateOnFocus: false,
+        dedupingInterval: 60000,
+    });
+
+    useSWR(shouldFetch ? "/api/announcements" : null, fetcher, {
+        revalidateOnFocus: false,
+        dedupingInterval: 60000,
+    });
+
     // Invisible component
     return null;
 }
