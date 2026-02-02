@@ -8,7 +8,7 @@ interface PageContainerProps {
     /** 
      * Notion-style large page title 
      */
-    title?: string;
+    title?: ReactNode;
 
     /** 
      * Actions to show on hover (top right) 
