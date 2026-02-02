@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
+import useSWR from "swr";
 import {
   Plus,
   Filter,
@@ -46,9 +47,15 @@ interface User {
 
 export default function TasksPage() {
   const { data: session } = useSession();
-  const [tasks, setTasks] = useState<Task[]>([]);
+  // SWR for Caching
+  const fetcher = (url: string) => fetch(url).then((res) => res.json());
+  const { data: tasksData, error, mutate } = useSWR<Task[]>("/api/tasks", fetcher);
+  const tasks = tasksData || [];
+  const loading = !tasksData && !error;
+
   const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
+
+  // View State
   const [viewMode, setViewMode] = useState<"list" | "board">("board");
   const [showModal, setShowModal] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -72,23 +79,8 @@ export default function TasksPage() {
   });
 
   useEffect(() => {
-    fetchTasks();
     fetchUsers();
   }, []);
-
-  const fetchTasks = async () => {
-    try {
-      const res = await fetch("/api/tasks");
-      if (res.ok) {
-        const data = await res.json();
-        setTasks(data);
-      }
-    } catch (error) {
-      console.error("Failed to fetch tasks:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const fetchUsers = async () => {
     try {
@@ -113,8 +105,9 @@ export default function TasksPage() {
       });
 
       if (res.ok) {
-        fetchTasks();
+        mutate(); // Revalidate cache explicitly
         closeModal();
+        success(editingTask ? "Task updated" : "Task created");
       }
     } catch (error) { console.error(error); }
   };
@@ -123,14 +116,15 @@ export default function TasksPage() {
     if (!confirm("Are you sure you want to delete this task?")) return;
 
     // Optimistic update
-    setTasks(prev => prev.filter(t => t.id !== taskId));
+    mutate(tasks.filter(t => t.id !== taskId), false);
 
     try {
       const res = await fetch(`/api/tasks/${taskId}`, { method: "DELETE" });
-      if (!res.ok) fetchTasks(); // Revert if failed
+      if (!res.ok) mutate(); // Revert if failed
+      else success("Task deleted");
     } catch (error) {
       console.error(error);
-      fetchTasks();
+      mutate();
     }
   };
 
@@ -138,7 +132,6 @@ export default function TasksPage() {
     e.dataTransfer.setData("text/plain", taskId);
     e.dataTransfer.effectAllowed = "move";
     setDraggedTaskId(taskId);
-    // Add visual feedback
     (e.currentTarget as HTMLElement).style.opacity = "0.5";
   };
 
@@ -151,43 +144,39 @@ export default function TasksPage() {
     e.preventDefault();
     e.stopPropagation();
 
-    // Get task ID from dataTransfer (more reliable than state)
     const taskId = e.dataTransfer.getData("text/plain") || draggedTaskId;
     if (!taskId) return;
 
-    // Find task
     const task = tasks.find(t => t.id === taskId);
     if (task && task.status !== status) {
       // Optimistic update
       const updatedTasks = tasks.map(t =>
         t.id === taskId ? { ...t, status: status as any } : t
       );
-      setTasks(updatedTasks);
+
+      // Update local cache immediately without waiting for API
+      mutate(updatedTasks, false);
       setDraggedTaskId(null);
 
-      // Celebrate if moved to COMPLETED!
+      // Celebrate
       if (status === "COMPLETED" && task.status !== "COMPLETED") {
         celebrate("confetti");
         success("Task completed");
-
-        // Check for streak
-        const completedToday = updatedTasks.filter(
-          t => t.status === "COMPLETED"
-        ).length;
+        const completedToday = updatedTasks.filter(t => t.status === "COMPLETED").length;
         if (completedToday >= 3) {
           setTimeout(() => showStreak(completedToday, "tasks completed today!"), 500);
         }
       }
 
-      // API Call
       try {
         await fetch(`/api/tasks/${taskId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ status })
         });
+        mutate(); // Revalidate to ensure server sync
       } catch (err) {
-        fetchTasks(); // Revert
+        mutate(); // Revert on error
       }
     }
     setDraggedTaskId(null);

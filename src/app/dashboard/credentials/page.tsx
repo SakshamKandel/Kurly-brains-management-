@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Key, Eye, EyeOff, Plus, Trash2, Globe, Server } from "lucide-react";
 import { useSession } from "next-auth/react";
+import useSWR from "swr";
 import PageContainer from "@/components/layout/PageContainer";
 import { Card } from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
@@ -47,8 +48,11 @@ interface User {
 
 export default function CredentialsPage() {
     const { data: session, status } = useSession();
-    const [credentials, setCredentials] = useState<ClientCredential[]>([]);
-    const [loading, setLoading] = useState(true);
+    const fetcher = (url: string) => fetch(url).then((res) => res.json());
+    const { data: credentialsData, error, mutate } = useSWR<ClientCredential[]>("/api/credentials", fetcher);
+    const credentials = credentialsData || [];
+    const loading = !credentialsData && !error;
+
     const [visiblePasswords, setVisiblePasswords] = useState<Set<string>>(new Set());
 
     // Add Credential State (Admin/Manager/SuperAdmin only)
@@ -74,26 +78,10 @@ export default function CredentialsPage() {
     const canCreate = userRole === "ADMIN" || userRole === "MANAGER" || userRole === "SUPER_ADMIN";
 
     useEffect(() => {
-        if (status === "loading") return;
-        fetchCredentials();
         if (canCreate) {
             fetchUsers();
         }
-    }, [status, canCreate]);
-
-    const fetchCredentials = async () => {
-        try {
-            const res = await fetch("/api/credentials");
-            if (res.ok) {
-                const data = await res.json();
-                setCredentials(data);
-            }
-        } catch (error) {
-            console.error("Error fetching credentials:", error);
-        } finally {
-            setLoading(false);
-        }
-    };
+    }, [canCreate]);
 
     const fetchUsers = async () => {
         try {
@@ -121,15 +109,19 @@ export default function CredentialsPage() {
     };
 
     const executeDelete = async (id: string) => {
+        // Optimistic update
+        mutate(credentials.filter(c => c.id !== id), false);
         try {
             const res = await fetch(`/api/credentials?id=${id}`, { method: "DELETE" });
             if (res.ok) {
-                setCredentials(prev => prev.filter(c => c.id !== id));
+                mutate(); // Revalidate
                 toast.success("Credential deleted");
             } else {
+                mutate(); // Revert
                 toast.error("Failed to delete credential");
             }
         } catch (error) {
+            mutate();
             console.error("Error deleting credential:", error);
             toast.error("An error occurred");
         } finally {
@@ -154,13 +146,15 @@ export default function CredentialsPage() {
                 throw new Error(data.error || "Failed");
             }
 
-            await fetchCredentials();
+            mutate(); // Revalidate
             setShowModal(false);
             setNewCredential({
                 clientName: "", serviceName: "", username: "", password: "", apiKey: "", url: "", notes: "", assignedToId: "", visibility: "PRIVATE"
             });
+            toast.success("Credential created");
         } catch (err: any) {
             setFormError(err.message);
+            toast.error(err.message);
         } finally {
             setIsSubmitting(false);
         }

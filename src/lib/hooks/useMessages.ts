@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
+import useSWR from "swr";
 
 interface Message {
     id: string;
@@ -49,61 +50,45 @@ interface UseConversationsResult {
 // Hook for fetching messages in a conversation
 export function useMessages(otherUserId: string | null): UseMessagesResult {
     const { data: session } = useSession();
-    const [messages, setMessages] = useState<Message[]>([]);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+    const fetcher = (url: string) => fetch(url).then(res => res.json());
 
-    const fetchMessages = useCallback(async () => {
-        if (!otherUserId) return;
-
-        setLoading(true);
-        setError(null);
-
-        try {
-            console.log('[useMessages] Fetching messages for userId:', otherUserId);
-            const res = await fetch(`/api/messages?userId=${otherUserId}`);
-            console.log('[useMessages] Response status:', res.status);
-            if (res.ok) {
-                const data = await res.json();
-                setMessages(prev => {
-                    const pendingMessages = prev.filter(m => m.id.startsWith('temp-'));
-                    return [...data, ...pendingMessages];
-                });
-
-                // Mark messages as read
-                if (data.length > 0) {
-                    const conversationId = data[0]?.conversationId;
-                    if (conversationId) {
-                        await fetch('/api/messages/read', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ conversationId })
-                        });
-                    }
-                }
-            } else {
-                setError("Failed to fetch messages");
-            }
-        } catch (err) {
-            setError("Network error");
-        } finally {
-            setLoading(false);
+    // Use SWR for polling (3s)
+    const { data: messagesData, error, mutate } = useSWR<Message[]>(
+        otherUserId ? `/api/messages?userId=${otherUserId}` : null,
+        fetcher,
+        {
+            refreshInterval: 3000,
+            revalidateOnFocus: true, // Fetch when window gets focus
+            dedupingInterval: 1000,
         }
-    }, [otherUserId]);
+    );
 
-    // Initial fetch and polling
+    const messages = messagesData || [];
+    const loading = !messagesData && !error && !!otherUserId;
+
+    // Mark as read when messages load
     useEffect(() => {
-        fetchMessages();
+        if (messages.length > 0) {
+            const conversationId = messagesData?.[0]?.conversationId;
+            const hasUnread = messages.some(m => !m.isRead && m.receiverId === session?.user?.id);
 
-        // Poll for new messages every 3 seconds
-        const interval = setInterval(fetchMessages, 3000);
-        return () => clearInterval(interval);
-    }, [fetchMessages]);
+            if (conversationId && hasUnread) {
+                // Determine if we need to mark read (check if latest is unread for us)
+                fetch('/api/messages/read', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ conversationId })
+                }).then(() => {
+                    // Start a revalidation to update unread counts globally?
+                    // Actually, useConversations will pick it up on next poll.
+                });
+            }
+        }
+    }, [messagesData, session]);
 
     const sendMessage = async (content: string, attachments?: string[]) => {
         if (!otherUserId || (!content.trim() && (!attachments || attachments.length === 0))) return;
 
-        // Optimistic update
         const tempMessage: Message = {
             id: 'temp-' + Date.now(),
             senderId: session?.user?.id || '',
@@ -116,7 +101,8 @@ export function useMessages(otherUserId: string | null): UseMessagesResult {
             receiver: null
         };
 
-        setMessages(prev => [...prev, tempMessage]);
+        // Optimistic update
+        mutate([...messages, tempMessage], false);
 
         try {
             const res = await fetch('/api/messages', {
@@ -126,103 +112,57 @@ export function useMessages(otherUserId: string | null): UseMessagesResult {
             });
 
             if (res.ok) {
-                const newMessage = await res.json();
-                setMessages(prev => {
-                    // Check if message already exists (from polling)
-                    const exists = prev.some(m => m.id === newMessage.id);
-                    if (exists) {
-                        // Just remove the temp message since the real one is there
-                        return prev.filter(m => m.id !== tempMessage.id);
-                    }
-                    // Replace temp with real
-                    return prev.map(msg => msg.id === tempMessage.id ? newMessage : msg);
-                });
+                mutate(); // Revalidate with server data
             } else {
-                setMessages(prev => prev.filter(msg => msg.id !== tempMessage.id));
-                console.error("Failed to send message");
+                // Revert
+                mutate(messages.filter(m => m.id !== tempMessage.id), false);
             }
         } catch (error) {
-            setMessages(prev => prev.filter(msg => msg.id !== tempMessage.id));
-            console.error("Error sending message:", error);
+            mutate(messages.filter(m => m.id !== tempMessage.id), false);
         }
     };
 
     return {
         messages,
         loading,
-        error,
+        error: error ? "Failed to load" : null,
         sendMessage,
-        refreshMessages: fetchMessages
+        refreshMessages: async () => { await mutate(); }
     };
 }
 
 // Hook for fetching conversations list
 export function useConversations(): UseConversationsResult {
-    const [conversations, setConversations] = useState<Conversation[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-    const [totalUnread, setTotalUnread] = useState(0);
+    const fetcher = (url: string) => fetch(url).then(res => res.json());
 
-    const fetchConversations = useCallback(async () => {
-        try {
-            const res = await fetch('/api/conversations');
-            if (res.ok) {
-                const data = await res.json();
-                setConversations(data);
+    // Poll every 5s
+    const { data: conversationsData, error, mutate } = useSWR<Conversation[]>('/api/conversations', fetcher, {
+        refreshInterval: 5000
+    });
 
-                // Calculate total unread
-                const total = data.reduce((sum: number, c: Conversation) => sum + c.unreadCount, 0);
-                setTotalUnread(total);
-            } else {
-                setError("Failed to fetch conversations");
-            }
-        } catch (err) {
-            setError("Network error");
-        } finally {
-            setLoading(false);
-        }
-    }, []);
-
-    useEffect(() => {
-        fetchConversations();
-
-        // Poll for updates every 5 seconds
-        const interval = setInterval(fetchConversations, 5000);
-        return () => clearInterval(interval);
-    }, [fetchConversations]);
+    const conversations = conversationsData || [];
+    const loading = !conversationsData && !error;
+    const totalUnread = conversations.reduce((sum, c) => sum + c.unreadCount, 0);
 
     return {
         conversations,
         loading,
-        error,
+        error: error ? "Failed to load" : null,
         totalUnread,
-        refreshConversations: fetchConversations
+        refreshConversations: async () => { await mutate(); }
     };
 }
 
 // Hook for total unread count (for sidebar badge)
 export function useUnreadCount(): number {
-    const [count, setCount] = useState(0);
+    const fetcher = (url: string) => fetch(url).then(res => res.json());
 
-    useEffect(() => {
-        const fetchUnread = async () => {
-            try {
-                const res = await fetch('/api/messages/unread');
-                if (res.ok) {
-                    const data = await res.json();
-                    setCount(data.unreadCount || 0);
-                }
-            } catch (err) {
-                // Silent fail
-            }
-        };
+    // Poll every 10s
+    const { data } = useSWR<{ unreadCount: number }>('/api/messages/unread', fetcher, {
+        refreshInterval: 10000
+    });
 
-        fetchUnread();
-        const interval = setInterval(fetchUnread, 10000);
-        return () => clearInterval(interval);
-    }, []);
-
-    return count;
+    return data?.unreadCount || 0;
 }
 
 // Hook for typing indicators
