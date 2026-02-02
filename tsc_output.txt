@@ -1,0 +1,33 @@
+src/app/dashboard/attendance/page.tsx(167,28): error TS2322: Type '({ key: string; header: string; render: (val: string) => Element; } | { key: string; header: string; render: (val: number) => Element; })[]' is not assignable to type 'Column<Record<string, unknown>>[]'.
+  Type '{ key: string; header: string; render: (val: string) => Element; } | { key: string; header: string; render: (val: number) => Element; }' is not assignable to type 'Column<Record<string, unknown>>'.
+    Type '{ key: string; header: string; render: (val: string) => JSX.Element; }' is not assignable to type 'Column<Record<string, unknown>>'.
+      Types of property 'render' are incompatible.
+        Type '(val: string) => JSX.Element' is not assignable to type '(value: unknown, row: Record<string, unknown>, index: number) => ReactNode'.
+          Types of parameters 'val' and 'value' are incompatible.
+            Type 'unknown' is not assignable to type 'string'.
+src/app/dashboard/attendance/page.tsx(167,46): error TS2322: Type 'AttendanceRecord[]' is not assignable to type 'Record<string, unknown>[]'.
+  Type 'AttendanceRecord' is not assignable to type 'Record<string, unknown>'.
+    Index signature for type 'string' is missing in type 'AttendanceRecord'.
+src/app/dashboard/leaves/page.tsx(131,28): error TS2322: Type '({ key: string; header: string; render: (val: string) => Element; } | { key: string; header: string; render: (_: any, row: LeaveRequest) => Element; })[]' is not assignable to type 'Column<Record<string, unknown>>[]'.
+  Type '{ key: string; header: string; render: (val: string) => Element; } | { key: string; header: string; render: (_: any, row: LeaveRequest) => Element; }' is not assignable to type 'Column<Record<string, unknown>>'.
+    Type '{ key: string; header: string; render: (val: string) => JSX.Element; }' is not assignable to type 'Column<Record<string, unknown>>'.
+      Types of property 'render' are incompatible.
+        Type '(val: string) => JSX.Element' is not assignable to type '(value: unknown, row: Record<string, unknown>, index: number) => ReactNode'.
+          Types of parameters 'val' and 'value' are incompatible.
+            Type 'unknown' is not assignable to type 'string'.
+src/app/dashboard/leaves/page.tsx(131,46): error TS2322: Type 'LeaveRequest[]' is not assignable to type 'Record<string, unknown>[]'.
+  Type 'LeaveRequest' is not assignable to type 'Record<string, unknown>'.
+    Index signature for type 'string' is missing in type 'LeaveRequest'.
+src/app/dashboard/tasks/page.tsx(315,16): error TS2322: Type '({ key: string; header: string; render: (_: any, row: Task) => Element; align?: undefined; } | { key: string; header: string; render: (val: string) => Element; align?: undefined; } | { ...; })[]' is not assignable to type 'Column<Record<string, unknown>>[]'.
+  Type '{ key: string; header: string; render: (_: any, row: Task) => Element; align?: undefined; } | { key: string; header: string; render: (val: string) => Element; align?: undefined; } | { ...; }' is not assignable to type 'Column<Record<string, unknown>>'.
+    Type '{ key: string; header: string; render: (_: any, row: Task) => JSX.Element; align?: undefined; }' is not assignable to type 'Column<Record<string, unknown>>'.
+      Types of property 'render' are incompatible.
+        Type '(_: any, row: Task) => JSX.Element' is not assignable to type '(value: unknown, row: Record<string, unknown>, index: number) => ReactNode'.
+          Types of parameters 'row' and 'row' are incompatible.
+            Type 'Record<string, unknown>' is missing the following properties from type 'Task': id, title, description, priority, and 5 more.
+src/app/dashboard/tasks/page.tsx(315,34): error TS2322: Type 'Task[]' is not assignable to type 'Record<string, unknown>[]'.
+  Type 'Task' is not assignable to type 'Record<string, unknown>'.
+    Index signature for type 'string' is missing in type 'Task'.
+src/components/ui/index.ts(5,16): error TS2614: Module '"./Card"' has no exported member 'CardHeader'. Did you mean to use 'import CardHeader from "./Card"' instead?
+src/components/ui/index.ts(5,28): error TS2614: Module '"./Card"' has no exported member 'CardBody'. Did you mean to use 'import CardBody from "./Card"' instead?
+src/components/ui/index.ts(5,38): error TS2614: Module '"./Card"' has no exported member 'CardFooter'. Did you mean to use 'import CardFooter from "./Card"' instead?
