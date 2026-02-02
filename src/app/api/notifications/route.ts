@@ -54,10 +54,10 @@ export async function GET() {
                     OR: [
                         // Messages where user is the receiver
                         { receiverId: userId },
-                        // Messages in conversations where user is a participant (but not sender)
+                        // Messages in conversations where user is a member (but not sender)
                         {
                             conversation: {
-                                participants: {
+                                members: {
                                     some: { userId: userId }
                                 }
                             },
@@ -72,15 +72,16 @@ export async function GET() {
                 orderBy: { createdAt: "desc" },
                 take: 5,
                 include: {
-                    sender: { select: { name: true } }
+                    sender: { select: { firstName: true, lastName: true } }
                 }
             });
 
             for (const msg of recentMessages) {
+                const senderName = msg.sender ? `${msg.sender.firstName} ${msg.sender.lastName}` : "Someone";
                 notifications.push({
                     id: `msg-${msg.id}`,
                     type: "message",
-                    title: `Message from ${msg.sender?.name || "Someone"}`,
+                    title: `Message from ${senderName}`,
                     description: msg.content.length > 40 ? msg.content.substring(0, 40) + "..." : msg.content,
                     time: getRelativeTime(msg.createdAt),
                     read: msg.isRead,
@@ -95,7 +96,7 @@ export async function GET() {
         try {
             const leaveUpdates = await prisma.leaveRequest.findMany({
                 where: {
-                    userId: userId,
+                    requesterId: userId,
                     updatedAt: {
                         gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
                     },

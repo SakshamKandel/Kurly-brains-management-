@@ -32,7 +32,6 @@ interface NewStaffForm {
   password: string;
   role: string;
   department: string;
-  department: string;
   position: string;
 }
 

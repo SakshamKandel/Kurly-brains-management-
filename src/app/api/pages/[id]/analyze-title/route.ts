@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 // POST /api/pages/[id]/analyze-title - AI-powered title generation
 export async function POST(
     req: Request,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
         const session = await auth();
@@ -13,10 +13,12 @@ export async function POST(
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
+        const { id } = await params;
+
         // Fetch page with blocks
         const page = await prisma.customPage.findFirst({
             where: {
-                id: params.id,
+                id,
                 userId: session.user.id
             },
             include: {
