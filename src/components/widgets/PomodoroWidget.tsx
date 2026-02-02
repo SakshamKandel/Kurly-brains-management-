@@ -1,16 +1,17 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { Play, Pause, RotateCcw, Clock } from "lucide-react";
-import { Card } from "@/components/ui/Card";
+import { useState, useEffect } from "react";
+import { Play, Pause, RotateCcw, Clock, Plus, Minus } from "lucide-react";
 
 export default function PomodoroWidget() {
+    // Settings state
+    const [focusDuration, setFocusDuration] = useState(25);
+    const [breakDuration, setBreakDuration] = useState(5);
+
+    // Timer state
     const [timeLeft, setTimeLeft] = useState(25 * 60);
     const [isActive, setIsActive] = useState(false);
     const [mode, setMode] = useState<"focus" | "break">("focus");
-
-    // Audio ref (optional, simple beep)
-    // const audioRef = useRef<HTMLAudioElement | null>(null);
 
     useEffect(() => {
         let interval: NodeJS.Timeout;
@@ -21,24 +22,42 @@ export default function PomodoroWidget() {
             }, 1000);
         } else if (timeLeft === 0) {
             setIsActive(false);
-            // Auto-switch mode or just stop
+            // Auto-switch mode
             if (mode === "focus") {
                 setMode("break");
-                setTimeLeft(5 * 60);
+                setTimeLeft(breakDuration * 60);
             } else {
                 setMode("focus");
-                setTimeLeft(25 * 60);
+                setTimeLeft(focusDuration * 60);
             }
         }
 
         return () => clearInterval(interval);
-    }, [isActive, timeLeft, mode]);
+    }, [isActive, timeLeft, mode, focusDuration, breakDuration]);
 
     const toggleTimer = () => setIsActive(!isActive);
 
     const resetTimer = () => {
         setIsActive(false);
-        setTimeLeft(mode === "focus" ? 25 * 60 : 5 * 60);
+        setTimeLeft(mode === "focus" ? focusDuration * 60 : breakDuration * 60);
+    };
+
+    const handleModeSwitch = (newMode: "focus" | "break") => {
+        setMode(newMode);
+        setIsActive(false);
+        setTimeLeft(newMode === "focus" ? focusDuration * 60 : breakDuration * 60);
+    };
+
+    const adjustTime = (amount: number) => {
+        if (mode === "focus") {
+            const newTime = Math.max(1, focusDuration + amount);
+            setFocusDuration(newTime);
+            if (!isActive) setTimeLeft(newTime * 60);
+        } else {
+            const newTime = Math.max(1, breakDuration + amount);
+            setBreakDuration(newTime);
+            if (!isActive) setTimeLeft(newTime * 60);
+        }
     };
 
     const formatTime = (seconds: number) => {
@@ -56,7 +75,9 @@ export default function PomodoroWidget() {
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
-            gap: "12px"
+            gap: "12px",
+            height: "100%",
+            justifyContent: "space-between"
         }}>
             <div style={{
                 display: "flex",
@@ -73,14 +94,54 @@ export default function PomodoroWidget() {
                 Pomodoro
             </div>
 
-            <div style={{
-                fontSize: "48px",
-                fontWeight: 700,
-                color: "var(--notion-text)",
-                fontVariantNumeric: "tabular-nums",
-                lineHeight: 1
-            }}>
-                {formatTime(timeLeft)}
+            <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+                <button
+                    onClick={() => adjustTime(-1)}
+                    disabled={isActive}
+                    style={{
+                        background: "transparent",
+                        border: "none",
+                        color: isActive ? "var(--notion-text-muted)" : "var(--notion-text-secondary)",
+                        cursor: isActive ? "not-allowed" : "pointer",
+                        opacity: isActive ? 0.3 : 1,
+                        padding: "4px"
+                    }}
+                    className={!isActive ? "hover-scale" : ""}
+                >
+                    <Minus size={16} />
+                </button>
+
+                <div style={{
+                    fontSize: "48px",
+                    fontWeight: 700,
+                    color: "var(--notion-text)",
+                    fontVariantNumeric: "tabular-nums",
+                    lineHeight: 1,
+                    minWidth: "140px",
+                    textAlign: "center"
+                }}>
+                    {formatTime(timeLeft)}
+                </div>
+
+                <button
+                    onClick={() => adjustTime(1)}
+                    disabled={isActive}
+                    style={{
+                        background: "transparent",
+                        border: "none",
+                        color: isActive ? "var(--notion-text-muted)" : "var(--notion-text-secondary)",
+                        cursor: isActive ? "not-allowed" : "pointer",
+                        opacity: isActive ? 0.3 : 1,
+                        padding: "4px"
+                    }}
+                    className={!isActive ? "hover-scale" : ""}
+                >
+                    <Plus size={16} />
+                </button>
+            </div>
+
+            <div style={{ fontSize: "12px", color: "var(--notion-text-muted)", marginTop: "-8px" }}>
+                {mode === "focus" ? `Focus: ${focusDuration}m` : `Break: ${breakDuration}m`}
             </div>
 
             <div style={{ display: "flex", gap: "8px" }}>
@@ -124,7 +185,7 @@ export default function PomodoroWidget() {
 
             <div style={{ display: "flex", gap: "4px", background: "var(--notion-bg-tertiary)", padding: "2px", borderRadius: "6px" }}>
                 <button
-                    onClick={() => { setMode("focus"); setTimeLeft(25 * 60); setIsActive(false); }}
+                    onClick={() => handleModeSwitch("focus")}
                     style={{
                         padding: "4px 12px",
                         fontSize: "12px",
@@ -133,13 +194,14 @@ export default function PomodoroWidget() {
                         border: "none",
                         borderRadius: "4px",
                         boxShadow: mode === "focus" ? "0 1px 2px rgba(0,0,0,0.1)" : "none",
-                        cursor: "pointer"
+                        cursor: "pointer",
+                        transition: "all 0.2s"
                     }}
                 >
                     Focus
                 </button>
                 <button
-                    onClick={() => { setMode("break"); setTimeLeft(5 * 60); setIsActive(false); }}
+                    onClick={() => handleModeSwitch("break")}
                     style={{
                         padding: "4px 12px",
                         fontSize: "12px",
@@ -148,7 +210,8 @@ export default function PomodoroWidget() {
                         border: "none",
                         borderRadius: "4px",
                         boxShadow: mode === "break" ? "0 1px 2px rgba(0,0,0,0.1)" : "none",
-                        cursor: "pointer"
+                        cursor: "pointer",
+                        transition: "all 0.2s"
                     }}
                 >
                     Break
