@@ -14,6 +14,7 @@ interface Message {
     createdAt: string;
     sender: { id: string; firstName: string; lastName: string };
     receiver: { id: string; firstName: string; lastName: string } | null;
+    conversationId?: string;
 }
 
 interface Conversation {
