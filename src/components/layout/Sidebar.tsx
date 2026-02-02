@@ -19,6 +19,7 @@ import {
   Search,
   Key,
 } from "lucide-react";
+import { preload } from "swr";
 import Avatar from "@/components/ui/Avatar";
 import { useSidebar } from "@/lib/contexts/SidebarContext";
 import DraggableNav from "./DraggableNav";
@@ -270,6 +271,9 @@ export default function Sidebar() {
                       textDecoration: 'none',
                       borderRadius: 'var(--radius-sm)',
                       fontSize: '14px'
+                    }}
+                    onMouseEnter={() => {
+                      if (item.id === "admin") preload("/api/users", (url) => fetch(url).then(r => r.json()));
                     }}
                     className="hover-bg"
                   >

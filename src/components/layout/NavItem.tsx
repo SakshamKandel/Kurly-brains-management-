@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import Link from "next/link";
+import { preload } from "swr";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
 import { Star } from "lucide-react";
@@ -67,6 +68,16 @@ export default function NavItem({
 
     const [isHovered, setIsHovered] = useState(false);
 
+    const fetcher = (url: string) => fetch(url).then((res) => res.json());
+
+    const handleMouseEnter = () => {
+        setIsHovered(true);
+        // Aggressive Hover Prefetch
+        if (href === '/dashboard/tasks') preload('/api/tasks', fetcher);
+        if (href === '/dashboard/credentials') preload('/api/credentials', fetcher);
+        if (href === '/dashboard/messages') preload('/api/conversations', fetcher);
+    };
+
     return (
         <SidebarHoverPreview itemId={id} isCollapsed={isCollapsed}>
             <div
@@ -75,7 +86,7 @@ export default function NavItem({
                 {...attributes}
                 {...listeners}
                 className="nav-item-wrapper"
-                onMouseEnter={() => setIsHovered(true)}
+                onMouseEnter={handleMouseEnter}
                 onMouseLeave={() => setIsHovered(false)}
             >
                 <Link

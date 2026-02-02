@@ -10,11 +10,10 @@ export default function DashboardPrefetcher() {
     const [shouldFetch, setShouldFetch] = useState(false);
 
     useEffect(() => {
-        // Wait 3 seconds after dashboard hits interactive before starting heavy prefetch
-        // This ensures the user sees the dashboard FAST first.
+        // Wait 0.5 seconds (Aggressive Mode)
         const timer = setTimeout(() => {
             setShouldFetch(true);
-        }, 3000);
+        }, 500);
 
         return () => clearTimeout(timer);
     }, []);
