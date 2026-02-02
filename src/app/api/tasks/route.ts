@@ -27,11 +27,11 @@ export async function GET(request: Request) {
             ...(assigneeId && { assigneeId }),
         };
 
-        // Regular staff can only see tasks they created or are assigned to them
-        // Admins, Super Admins, and Managers can see all tasks
-        const isPrivilegedRole = ["SUPER_ADMIN", "ADMIN", "MANAGER"].includes(currentUser?.role || "");
+        // SUPER_ADMIN can see everything
+        // ADMIN and regular staff can only see tasks they created or are assigned to them
+        const isSuperAdmin = currentUser?.role === "SUPER_ADMIN";
 
-        if (!isPrivilegedRole) {
+        if (!isSuperAdmin) {
             whereClause = {
                 ...whereClause,
                 OR: [

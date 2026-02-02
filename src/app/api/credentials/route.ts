@@ -17,8 +17,8 @@ export async function GET(request: NextRequest) {
 
         let credentials;
 
-        if (user?.role === "ADMIN" || user?.role === "MANAGER" || user?.role === "SUPER_ADMIN") {
-            // Admins/Managers/Super Admins see all credentials
+        if (user?.role === "SUPER_ADMIN") {
+            // Only Super Admin sees EVERYTHING
             credentials = await prisma.clientCredential.findMany({
                 include: {
                     assignedTo: {
@@ -31,24 +31,22 @@ export async function GET(request: NextRequest) {
                 orderBy: { createdAt: "desc" },
             });
         } else {
-            // Staff sees:
+            // Admins, Managers, and Staff see:
             // 1. Assigned to them
             // 2. Created by them
             // 3. Visibility is PUBLIC
-            // 4. Visibility is TEAM (for now, treated same as PUBLIC until Team logic is fully fleshed out, or we can restrict it)
+            // 4. Visibility is TEAM (broad sharing for now)
             credentials = await prisma.clientCredential.findMany({
                 where: {
                     OR: [
                         { assignedToId: session.user.id },
                         { createdById: session.user.id },
                         { visibility: "PUBLIC" },
-                        { visibility: "TEAM" }, // Broad sharing for now as requested "Client credentials should be there for ... everyone"
+                        { visibility: "TEAM" },
                     ]
                 },
                 include: {
-                    assignedTo: { // Might be null if public/team logic allows unassigned, but schema says assignedToId is String (required).
-                        // We should probably check if we can relax assignedToId in schema or just assign to creator/admin as placeholder.
-                        // For now, let's assume assignedTo is still required but visibility overrides access.
+                    assignedTo: {
                         select: { id: true, firstName: true, lastName: true, email: true },
                     },
                     createdBy: {
