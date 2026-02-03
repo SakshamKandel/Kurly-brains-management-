@@ -345,7 +345,7 @@ export default function AdminDashboardPage() {
                 </div>
               )}
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+              <div className="responsive-grid-2">
                 <div>
                   <label style={labelStyle}>First Name *</label>
                   <input type="text" required value={newStaff.firstName} onChange={(e) => setNewStaff({ ...newStaff, firstName: e.target.value })} style={inputStyle} placeholder="John" />
@@ -366,7 +366,7 @@ export default function AdminDashboardPage() {
                 <input type="password" required minLength={6} value={newStaff.password} onChange={(e) => setNewStaff({ ...newStaff, password: e.target.value })} style={inputStyle} placeholder="Min. 6 characters" />
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginTop: "16px" }}>
+              <div className="responsive-grid-2" style={{ marginTop: "16px" }}>
                 <div>
                   <label style={labelStyle}>Role *</label>
                   <select required value={newStaff.role} onChange={(e) => setNewStaff({ ...newStaff, role: e.target.value })} style={inputStyle}>
@@ -426,12 +426,12 @@ export default function AdminDashboardPage() {
 
       {/* Staff Section */}
       <div style={{ marginTop: '48px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+        <div className="responsive-stack" style={{ alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
           <h3 style={{ fontSize: '14px', color: 'var(--notion-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Staff Directory
           </h3>
 
-          <div style={{ display: 'flex', gap: '12px', flex: 1, justifyContent: 'flex-end' }}>
+          <div className="responsive-actions" style={{ flex: 1, justifyContent: 'flex-end' }}>
             <div style={{ position: 'relative', width: '240px' }}>
               <input
                 type="text"
@@ -469,7 +469,7 @@ export default function AdminDashboardPage() {
             No staff members found.
           </div>
         ) : (
-          <div style={{ border: '1px solid var(--notion-border)', borderRadius: 'var(--radius-sm)', overflow: 'hidden' }}>
+          <div className="table-scroll" style={{ border: '1px solid var(--notion-border)', borderRadius: 'var(--radius-sm)' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
               <thead>
                 <tr style={{ backgroundColor: 'var(--notion-bg-secondary)' }}>

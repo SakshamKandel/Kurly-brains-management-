@@ -218,7 +218,7 @@ export default function CredentialsPage() {
                 <div style={{ display: 'grid', gap: '16px' }}>
                     {credentials.map(cred => (
                         <Card key={cred.id} padding="md">
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                            <div className="responsive-stack" style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                 <div style={{ flex: 1 }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
                                         <span style={{ fontWeight: 600, fontSize: '16px', color: 'var(--notion-text)' }}>{cred.clientName}</span>
@@ -288,7 +288,7 @@ export default function CredentialsPage() {
                         </div>
                     )}
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                    <div className="responsive-grid-2">
                         <div>
                             <label style={labelStyle}>Client Name *</label>
                             <input required type="text" value={newCredential.clientName} onChange={e => setNewCredential({ ...newCredential, clientName: e.target.value })} style={inputStyle} placeholder="e.g. Acme Corp" />
@@ -299,7 +299,7 @@ export default function CredentialsPage() {
                         </div>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                    <div className="responsive-grid-2">
                         <div>
                             <label style={labelStyle}>Username</label>
                             <input type="text" value={newCredential.username} onChange={e => setNewCredential({ ...newCredential, username: e.target.value })} style={inputStyle} />

@@ -207,7 +207,7 @@ export default function AnnouncementsPage() {
             />
           </div>
 
-          <div style={{ display: 'flex', gap: '12px' }}>
+          <div className="responsive-stack">
             <div style={{ flex: 1 }}>
               <label className="text-xs text-muted" style={{ display: 'block', marginBottom: '4px' }}>Priority</label>
               <Dropdown

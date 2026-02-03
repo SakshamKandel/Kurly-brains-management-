@@ -10,11 +10,7 @@ export async function GET() {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        // Only admins and managers can access stats
-        const allowedRoles = ["ADMIN", "SUPER_ADMIN", "MANAGER"];
-        if (!allowedRoles.includes(session.user.role)) {
-            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-        }
+        // All authenticated users can access dashboard stats
 
         const today = new Date();
         today.setHours(0, 0, 0, 0);

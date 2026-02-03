@@ -63,13 +63,15 @@ export default function DirectoryPage() {
       <Breadcrumb />
 
       {/* Header Stats */}
-      <div style={{
-        display: 'flex',
-        gap: '24px',
-        marginTop: '24px',
-        paddingBottom: '24px',
-        borderBottom: '1px solid var(--notion-divider)'
-      }}>
+      <div
+        className="responsive-stack"
+        style={{
+          gap: '24px',
+          marginTop: '24px',
+          paddingBottom: '24px',
+          borderBottom: '1px solid var(--notion-divider)'
+        }}
+      >
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <User2 size={16} style={{ color: 'var(--notion-blue)' }} />
           <span style={{ fontSize: '14px', color: 'var(--notion-text-secondary)' }}>

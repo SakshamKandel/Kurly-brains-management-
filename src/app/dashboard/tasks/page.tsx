@@ -61,13 +61,15 @@ export default function TasksPage() {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [isMobile, setIsMobile] = useState(false);
 
   // Drag & Drop State
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
+  const [statusOverrides, setStatusOverrides] = useState<Record<string, string>>({});
 
   // Celebration & Toast
   const { celebrate, showStreak } = useCelebration();
-  const { success } = useToast();
+  const { success, error: showError } = useToast();
 
   const [formData, setFormData] = useState({
     title: "",
@@ -80,6 +82,14 @@ export default function TasksPage() {
 
   useEffect(() => {
     fetchUsers();
+  }, []);
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 1024px)");
+    const update = () => setIsMobile(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
   }, []);
 
   const fetchUsers = async () => {
@@ -182,6 +192,40 @@ export default function TasksPage() {
     setDraggedTaskId(null);
   };
 
+  const updateTaskStatus = async (taskId: string, status: string) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task || task.status === status) return true;
+
+    const updatedTasks = tasks.map(t =>
+      t.id === taskId ? { ...t, status: status as any } : t
+    );
+
+    mutate(updatedTasks, false);
+
+    if (status === "COMPLETED" && task.status !== "COMPLETED") {
+      celebrate("confetti");
+      success("Task completed");
+      const completedToday = updatedTasks.filter(t => t.status === "COMPLETED").length;
+      if (completedToday >= 3) {
+        setTimeout(() => showStreak(completedToday, "tasks completed today!"), 500);
+      }
+    }
+
+    try {
+      const res = await fetch(`/api/tasks/${taskId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status })
+      });
+      if (!res.ok) throw new Error("Failed to update status");
+      mutate();
+      return true;
+    } catch (err) {
+      mutate();
+      return false;
+    }
+  };
+
   const openModal = (task?: Task) => {
     if (task) {
       setEditingTask(task);
@@ -217,6 +261,8 @@ export default function TasksPage() {
     const matchesStatus = !statusFilter || task.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
+
+  const statusOptions = ["TODO", "IN_PROGRESS", "REVIEW", "COMPLETED"];
 
   // Board Columns
   const boardColumns = ["TODO", "IN_PROGRESS", "REVIEW", "COMPLETED"];
@@ -278,40 +324,44 @@ export default function TasksPage() {
     }
   ];
 
+  const effectiveViewMode = isMobile ? "list" : viewMode;
+
   return (
     <PageContainer
       title="Tasks"
       icon="✅"
       action={
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <div style={{ display: 'flex', background: 'var(--notion-bg-secondary)', borderRadius: 'var(--radius-sm)', padding: '2px' }}>
-            <button
-              onClick={() => setViewMode("list")}
-              style={{
-                padding: '4px 8px',
-                background: viewMode === "list" ? 'var(--notion-bg-tertiary)' : 'transparent',
-                borderRadius: 'var(--radius-sm)',
-                border: 'none',
-                cursor: 'pointer',
-                color: viewMode === "list" ? 'var(--notion-text)' : 'var(--notion-text-muted)'
-              }}
-            >
-              <List size={16} />
-            </button>
-            <button
-              onClick={() => setViewMode("board")}
-              style={{
-                padding: '4px 8px',
-                background: viewMode === "board" ? 'var(--notion-bg-tertiary)' : 'transparent',
-                borderRadius: 'var(--radius-sm)',
-                border: 'none',
-                cursor: 'pointer',
-                color: viewMode === "board" ? 'var(--notion-text)' : 'var(--notion-text-muted)'
-              }}
-            >
-              <LayoutTemplate size={16} />
-            </button>
-          </div>
+        <div className="responsive-actions">
+          {!isMobile && (
+            <div style={{ display: 'flex', background: 'var(--notion-bg-secondary)', borderRadius: 'var(--radius-sm)', padding: '2px' }}>
+              <button
+                onClick={() => setViewMode("list")}
+                style={{
+                  padding: '4px 8px',
+                  background: viewMode === "list" ? 'var(--notion-bg-tertiary)' : 'transparent',
+                  borderRadius: 'var(--radius-sm)',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: viewMode === "list" ? 'var(--notion-text)' : 'var(--notion-text-muted)'
+                }}
+              >
+                <List size={16} />
+              </button>
+              <button
+                onClick={() => setViewMode("board")}
+                style={{
+                  padding: '4px 8px',
+                  background: viewMode === "board" ? 'var(--notion-bg-tertiary)' : 'transparent',
+                  borderRadius: 'var(--radius-sm)',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: viewMode === "board" ? 'var(--notion-text)' : 'var(--notion-text-muted)'
+                }}
+              >
+                <LayoutTemplate size={16} />
+              </button>
+            </div>
+          )}
           <Button icon={<Plus size={14} />} onClick={() => openModal()}>New</Button>
         </div>
       }
@@ -319,14 +369,107 @@ export default function TasksPage() {
       <Breadcrumb />
 
       {/* Filter Bar */}
-      <div style={{ display: 'flex', gap: '12px', margin: '24px 0', borderBottom: '1px solid var(--notion-divider)', paddingBottom: '16px' }}>
+      <div className="responsive-stack" style={{ margin: '24px 0', borderBottom: '1px solid var(--notion-divider)', paddingBottom: '16px' }}>
         <Input placeholder="Search tasks..." icon={<Search size={14} />} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} fullWidth={false} />
       </div>
 
       {loading ? (
         <div className="skeleton" style={{ width: '100%', height: '300px' }} />
-      ) : viewMode === "list" ? (
-        <Table columns={listColumns} data={filteredTasks} />
+      ) : effectiveViewMode === "list" ? (
+        isMobile ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {filteredTasks.length === 0 ? (
+              <div style={{ padding: '16px', color: 'var(--notion-text-muted)', fontSize: '14px' }}>
+                No tasks found.
+              </div>
+            ) : (
+              filteredTasks.map((task) => (
+                <div
+                  key={task.id}
+                  className="notion-card"
+                  style={{
+                    backgroundColor: 'var(--notion-bg-secondary)',
+                    padding: '12px',
+                    borderRadius: 'var(--radius-sm)',
+                    border: '1px solid var(--notion-border)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '8px'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {task.priority === 'URGENT' && <Zap size={14} color="var(--notion-red)" />}
+                    <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--notion-text)' }}>
+                      {task.title}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <Badge variant={task.status === 'COMPLETED' ? 'success' : task.status === 'IN_PROGRESS' ? 'info' : 'default'} size="sm">
+                      {task.status.replace('_', ' ')}
+                    </Badge>
+                    <Badge variant={task.priority === 'URGENT' ? 'error' : task.priority === 'HIGH' ? 'warning' : 'default'} size="sm">
+                      {task.priority}
+                    </Badge>
+                    {task.assignee && (
+                      <span style={{ fontSize: '12px', color: 'var(--notion-text-secondary)' }}>
+                        {task.assignee.firstName}
+                      </span>
+                    )}
+                    {task.dueDate && (
+                      <span style={{ fontSize: '12px', color: 'var(--notion-text-muted)' }}>
+                        Due {new Date(task.dueDate).toLocaleDateString()}
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '12px', color: 'var(--notion-text-muted)' }}>
+                      Status
+                    </label>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                      {statusOptions.map((status) => {
+                        const isActive = (statusOverrides[task.id] ?? task.status) === status;
+                        const isUpdating = statusOverrides[task.id] !== undefined;
+                        return (
+                          <button
+                            key={status}
+                            type="button"
+                            disabled={isUpdating && !isActive}
+                            onClick={async () => {
+                              const nextStatus = status;
+                              if (nextStatus === task.status) return;
+                              setStatusOverrides(prev => ({ ...prev, [task.id]: nextStatus }));
+                              const ok = await updateTaskStatus(task.id, nextStatus);
+                              setStatusOverrides(prev => {
+                                const updated = { ...prev };
+                                delete updated[task.id];
+                                return updated;
+                              });
+                              if (!ok) showError("Couldn't update task status");
+                            }}
+                            style={{
+                              padding: '6px 10px',
+                              background: isActive ? 'var(--notion-bg-tertiary)' : 'transparent',
+                              border: '1px solid var(--notion-border)',
+                              color: isActive ? 'var(--notion-text)' : 'var(--notion-text-secondary)',
+                              borderRadius: '999px',
+                              fontSize: '11px',
+                              cursor: isUpdating && !isActive ? 'not-allowed' : 'pointer',
+                              opacity: isUpdating && !isActive ? 0.6 : 1
+                            }}
+                          >
+                            {status.replace('_', ' ')}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        ) : (
+          <Table columns={listColumns} data={filteredTasks} />
+        )
       ) : (
         // Kanban Board View
         <div style={{
@@ -440,7 +583,7 @@ export default function TasksPage() {
             autoFocus
           />
 
-          <div style={{ display: 'flex', gap: '12px' }}>
+          <div className="responsive-stack">
             <div style={{ flex: 1 }}>
               <label className="text-xs text-muted" style={{ display: 'block', marginBottom: '4px' }}>Status</label>
               <Dropdown
@@ -469,7 +612,7 @@ export default function TasksPage() {
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: '12px' }}>
+          <div className="responsive-stack">
             <div style={{ flex: 1 }}>
               <Input
                 type="date"

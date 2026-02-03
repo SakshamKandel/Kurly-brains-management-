@@ -46,12 +46,6 @@ export default function PageContainer({
     return (
         <div
             className={`page-container ${className}`}
-            style={{
-                width: "100%",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center", // Center the column
-            }}
         >
             {/* Optional Cover Image */}
             {coverImage && (
@@ -70,34 +64,17 @@ export default function PageContainer({
 
             {/* Content Column */}
             <div
-                className="notion-content-column"
-                style={{
-                    width: "100%",
-                    maxWidth: fullWidth ? "100%" : "900px",
-                    padding: fullWidth ? "24px 48px" : "32px 96px", // Notion-like generous side padding
-                    paddingBottom: "120px", // Bottom spacing
-                }}
+                className={`notion-content-column ${fullWidth ? "notion-content-column--full" : ""}`}
             >
                 {/* Page Header Area */}
                 {(title || icon) && (
                     <div
                         className="page-header group"
-                        style={{
-                            marginBottom: "32px",
-                            position: 'relative',
-                        }}
                     >
                         {/* Hover Actions (Top Right of Content) */}
                         {action && (
                             <div
-                                className="hover-reveal"
-                                style={{
-                                    position: 'absolute',
-                                    right: 0,
-                                    top: 0,
-                                    display: 'flex',
-                                    gap: '8px'
-                                }}
+                                className="page-header-actions hover-reveal"
                             >
                                 {action}
                             </div>

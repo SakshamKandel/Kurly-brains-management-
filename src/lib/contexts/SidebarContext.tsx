@@ -36,6 +36,10 @@ interface SidebarContextType {
     isCollapsed: boolean;
     setIsCollapsed: (value: boolean) => void;
 
+    // Mobile drawer state
+    isMobileOpen: boolean;
+    setIsMobileOpen: (value: boolean) => void;
+
     // Navigation order
     navOrder: string[];
     reorderNav: (newOrder: string[]) => void;
@@ -83,6 +87,8 @@ const defaultNavOrder = [
 const defaultContext: SidebarContextType = {
     isCollapsed: false,
     setIsCollapsed: () => { },
+    isMobileOpen: false,
+    setIsMobileOpen: () => { },
     navOrder: defaultNavOrder,
     reorderNav: () => { },
     favorites: [],
@@ -114,6 +120,7 @@ interface SidebarProviderProps {
 
 export function SidebarProvider({ children }: SidebarProviderProps) {
     const [isCollapsed, setIsCollapsed] = useState(false);
+    const [isMobileOpen, setIsMobileOpen] = useState(false);
     const [navOrder, setNavOrder] = useState<string[]>(defaultNavOrder);
     const [favorites, setFavorites] = useState<string[]>([]);
     const [groups, setGroups] = useState<NavGroup[]>([]);
@@ -279,6 +286,8 @@ export function SidebarProvider({ children }: SidebarProviderProps) {
     const value: SidebarContextType = {
         isCollapsed,
         setIsCollapsed,
+        isMobileOpen,
+        setIsMobileOpen,
         navOrder,
         reorderNav,
         favorites,

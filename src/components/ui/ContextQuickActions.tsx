@@ -126,7 +126,7 @@ export default function ContextQuickActions() {
     const actions = getActions();
 
     return (
-        <div ref={panelRef} style={{ position: "fixed", bottom: "24px", right: "24px", zIndex: 1000 }}>
+        <div ref={panelRef} className="quick-actions" style={{ position: "fixed", bottom: "24px", right: "24px", zIndex: 1000 }}>
             {/* Action buttons - Notion style */}
             <AnimatePresence>
                 {isOpen && (

@@ -1,5 +1,3 @@
-// Kurly Brains Staff Dashboard - Database Schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -9,95 +7,208 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ============ USERS & AUTH ============
-
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  password      String
-  firstName     String
-  lastName      String
-  avatar        String?
-  phone         String?
-  department    String?
-  position      String?
-  role          Role      @default(STAFF)
-  status        UserStatus @default(ACTIVE)
-  mustChangePassword Boolean @default(false)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  // Manager relation
-  managerId     String?
-  manager       User?     @relation("UserManager", fields: [managerId], references: [id])
-  reports       User[]    @relation("UserManager")
-
-  // Relations
-  tasksCreated    Task[]    @relation("TaskCreator")
-  tasksAssigned   Task[]    @relation("TaskAssignee")
-  messagesSent    Message[] @relation("MessageSender")
-  messagesReceived Message[] @relation("MessageReceiver")
-  attendance      Attendance[]
-  leaveRequests   LeaveRequest[]  @relation("LeaveRequester")
-  leaveApprovals  LeaveRequest[]  @relation("LeaveApprover")
-  announcements   Announcement[]
-  conversationsAsUser1 Conversation[] @relation("User1")
-  conversationsAsUser2 Conversation[] @relation("User2")
-  preferences     UserPreferences?
-  assignedCredentials ClientCredential[] @relation("CredentialAssignee")
-  createdCredentials  ClientCredential[] @relation("CredentialCreator")
-  customPages     CustomPage[]
+  id                   String             @id @default(cuid())
+  email                String             @unique
+  password             String
+  firstName            String
+  lastName             String
+  avatar               String?
+  phone                String?
+  department           String?
+  position             String?
+  role                 Role               @default(STAFF)
+  status               UserStatus         @default(ACTIVE)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  managerId            String?
+  mustChangePassword   Boolean            @default(false)
+  announcements        Announcement[]
+  attendance           Attendance[]
+  assignedCredentials  ClientCredential[] @relation("CredentialAssignee")
+  createdCredentials   ClientCredential[] @relation("CredentialCreator")
+  conversationsAsUser1 Conversation[]     @relation("User1")
+  conversationsAsUser2 Conversation[]     @relation("User2")
+  customPages          CustomPage[]
+  leaveApprovals       LeaveRequest[]     @relation("LeaveApprover")
+  leaveRequests        LeaveRequest[]     @relation("LeaveRequester")
+  messagesReceived     Message[]          @relation("MessageReceiver")
+  messagesSent         Message[]          @relation("MessageSender")
+  tasksAssigned        Task[]             @relation("TaskAssignee")
+  tasksCreated         Task[]             @relation("TaskCreator")
+  manager              User?              @relation("UserManager", fields: [managerId], references: [id])
+  reports              User[]             @relation("UserManager")
+  preferences          UserPreferences?
+  
+  // Invoicing
+  createdClients       Client[]
+  createdInvoices      Invoice[]
 }
-
-// ============ CLIENT CREDENTIALS ============
 
 model ClientCredential {
-  id          String   @id @default(cuid())
-  clientName  String   // Name of the client (e.g., "Acme Corp")
-  serviceName String   // Name of the service (e.g., "AWS", "GitHub", etc.)
-  username    String?  // Username/email for the service
-  password    String   // Encrypted password
-  apiKey      String?  // Optional API key
-  url         String?  // Login URL or dashboard URL
-  notes       String?  // Additional notes
-  
-  // Who created this credential (Admin)
-  createdById String
-  createdBy   User     @relation("CredentialCreator", fields: [createdById], references: [id])
-  
-  // Who can access this credential (Staff)
+  id           String               @id @default(cuid())
+  clientName   String
+  serviceName  String
+  username     String?
+  password     String
+  apiKey       String?
+  url          String?
+  notes        String?
+  createdById  String
   assignedToId String
-  assignedTo   User    @relation("CredentialAssignee", fields: [assignedToId], references: [id])
-  
-  visibility  CredentialVisibility @default(PRIVATE)
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+  visibility   CredentialVisibility @default(PRIVATE)
+  assignedTo   User                 @relation("CredentialAssignee", fields: [assignedToId], references: [id])
+  createdBy    User                 @relation("CredentialCreator", fields: [createdById], references: [id])
 }
 
-// ============ USER PREFERENCES ============
-
 model UserPreferences {
-  id              String   @id @default(cuid())
-  userId          String   @unique
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  // Sidebar configuration
-  navOrder        Json?    // Array of nav item IDs in custom order
-  favorites       Json?    // Array of favorited nav item IDs
-  groups          Json?    // Custom groups: [{ name, items, collapsed }]
-  workModes       Json?    // Named profiles: { "Developer": {...}, "Manager": {...} }
-  activeWorkMode  String?  // Currently active work mode name
-  
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  navOrder       Json?
+  favorites      Json?
+  groups         Json?
+  workModes      Json?
+  activeWorkMode String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Task {
+  id          String        @id @default(cuid())
+  title       String
+  description String?
+  priority    Priority      @default(MEDIUM)
+  status      TaskStatus    @default(TODO)
+  dueDate     DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  creatorId   String
+  assigneeId  String?
+  assignee    User?         @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  creator     User          @relation("TaskCreator", fields: [creatorId], references: [id])
+  comments    TaskComment[]
+}
+
+model TaskComment {
+  id        String   @id @default(cuid())
+  content   String
+  createdAt DateTime @default(now())
+  taskId    String
+  userId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+}
+
+model Conversation {
+  id        String               @id @default(cuid())
+  isGroup   Boolean              @default(false)
+  name      String?
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
+  user1Id   String?
+  user2Id   String?
+  user1     User?                @relation("User1", fields: [user1Id], references: [id])
+  user2     User?                @relation("User2", fields: [user2Id], references: [id])
+  members   ConversationMember[]
+  messages  Message[]
+}
+
+model ConversationMember {
+  id             String       @id @default(cuid())
+  conversationId String
+  userId         String
+  joinedAt       DateTime     @default(now())
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  content        String
+  isRead         Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  conversationId String
+  senderId       String
+  receiverId     String?
+  attachments    String[]     @default([])
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  receiver       User?        @relation("MessageReceiver", fields: [receiverId], references: [id])
+  sender         User         @relation("MessageSender", fields: [senderId], references: [id])
+}
+
+model Attendance {
+  id       String           @id @default(cuid())
+  date     DateTime         @db.Date
+  clockIn  DateTime
+  clockOut DateTime?
+  status   AttendanceStatus @default(PRESENT)
+  notes    String?
+  userId   String
+  user     User             @relation(fields: [userId], references: [id])
+
+  @@unique([userId, date])
+}
+
+model LeaveRequest {
+  id          String      @id @default(cuid())
+  type        LeaveType
+  startDate   DateTime    @db.Date
+  endDate     DateTime    @db.Date
+  reason      String
+  status      LeaveStatus @default(PENDING)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  requesterId String
+  approverId  String?
+  approver    User?       @relation("LeaveApprover", fields: [approverId], references: [id])
+  requester   User        @relation("LeaveRequester", fields: [requesterId], references: [id])
+}
+
+model Announcement {
+  id          String    @id @default(cuid())
+  title       String
+  content     String
+  priority    Priority  @default(MEDIUM)
+  isPublished Boolean   @default(false)
+  publishedAt DateTime?
+  expiresAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  authorId    String
+  author      User      @relation(fields: [authorId], references: [id])
+}
+
+model CustomPage {
+  id        String   @id @default(cuid())
+  title     String   @default("Untitled")
+  icon      String?  @default("📄")
+  userId    String
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  blocks    Block[]
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Block {
+  id        String     @id @default(cuid())
+  type      String
+  content   Json       @default("{}")
+  order     Int        @default(0)
+  pageId    String
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  page      CustomPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
 }
 
 enum Role {
-  SUPER_ADMIN
   ADMIN
   MANAGER
   STAFF
+  SUPER_ADMIN
 }
 
 enum UserStatus {
@@ -110,38 +221,6 @@ enum CredentialVisibility {
   PRIVATE
   TEAM
   PUBLIC
-}
-
-// ============ TASKS ============
-
-model Task {
-  id          String      @id @default(cuid())
-  title       String
-  description String?
-  priority    Priority    @default(MEDIUM)
-  status      TaskStatus  @default(TODO)
-  dueDate     DateTime?
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-
-  creatorId   String
-  creator     User        @relation("TaskCreator", fields: [creatorId], references: [id])
-  
-  assigneeId  String?
-  assignee    User?       @relation("TaskAssignee", fields: [assigneeId], references: [id])
-  
-  comments    TaskComment[]
-}
-
-model TaskComment {
-  id        String   @id @default(cuid())
-  content   String
-  createdAt DateTime @default(now())
-  
-  taskId    String
-  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  
-  userId    String
 }
 
 enum Priority {
@@ -159,92 +238,11 @@ enum TaskStatus {
   CANCELLED
 }
 
-// ============ MESSAGING ============
-
-model Conversation {
-  id        String    @id @default(cuid())
-  isGroup   Boolean   @default(false)
-  name      String?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  
-  user1Id   String?
-  user1     User?     @relation("User1", fields: [user1Id], references: [id])
-  
-  user2Id   String?
-  user2     User?     @relation("User2", fields: [user2Id], references: [id])
-  
-  messages  Message[]
-  members   ConversationMember[]
-}
-
-model ConversationMember {
-  id             String       @id @default(cuid())
-  conversationId String
-  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  userId         String
-  joinedAt       DateTime     @default(now())
-  
-  @@unique([conversationId, userId])
-}
-
-model Message {
-  id          String   @id @default(cuid())
-  content     String
-  attachments String[] @default([])
-  isRead      Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  
-  conversationId String
-  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  
-  senderId  String
-  sender    User     @relation("MessageSender", fields: [senderId], references: [id])
-  
-  receiverId String?
-  receiver   User?   @relation("MessageReceiver", fields: [receiverId], references: [id])
-}
-
-// ============ ATTENDANCE ============
-
-model Attendance {
-  id        String   @id @default(cuid())
-  date      DateTime @db.Date
-  clockIn   DateTime
-  clockOut  DateTime?
-  status    AttendanceStatus @default(PRESENT)
-  notes     String?
-  
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  
-  @@unique([userId, date])
-}
-
 enum AttendanceStatus {
   PRESENT
   LATE
   HALF_DAY
   ABSENT
-}
-
-// ============ LEAVE MANAGEMENT ============
-
-model LeaveRequest {
-  id          String      @id @default(cuid())
-  type        LeaveType
-  startDate   DateTime    @db.Date
-  endDate     DateTime    @db.Date
-  reason      String
-  status      LeaveStatus @default(PENDING)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  
-  requesterId String
-  requester   User        @relation("LeaveRequester", fields: [requesterId], references: [id])
-  
-  approverId  String?
-  approver    User?       @relation("LeaveApprover", fields: [approverId], references: [id])
 }
 
 enum LeaveType {
@@ -263,44 +261,69 @@ enum LeaveStatus {
   CANCELLED
 }
 
-// ============ ANNOUNCEMENTS ============
+// --- INVOICING MODELS ---
 
-model Announcement {
-  id          String   @id @default(cuid())
-  title       String
-  content     String
-  priority    Priority @default(MEDIUM)
-  isPublished Boolean  @default(false)
-  publishedAt DateTime?
-  expiresAt   DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+model Client {
+  id        String   @id @default(cuid())
+  name      String
+  email     String?
+  address   String?
+  phone     String?
+  logo      String?
+  status    ClientStatus @default(ACTIVE)
+  creatorId String?
+  creator   User?    @relation(fields: [creatorId], references: [id])
+  invoices  Invoice[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum ClientStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+
+model Invoice {
+  id            String        @id @default(cuid())
+  invoiceNumber String        @unique
+  status        InvoiceStatus @default(DRAFT)
+  issueDate     DateTime      @default(now())
+  dueDate       DateTime?
   
-  authorId    String
-  author      User     @relation(fields: [authorId], references: [id])
+  clientId      String
+  client        Client        @relation(fields: [clientId], references: [id])
+  
+  creatorId     String
+  creator       User          @relation(fields: [creatorId], references: [id])
+  
+  items         InvoiceItem[]
+  
+  subtotal      Float
+  taxRate       Float         @default(0)
+  taxAmount     Float
+  total         Float
+  notes         String?
+  
+  billedByName     String?
+  billedByPosition String?
+  
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 }
 
-// ============ CUSTOM PAGES (Notion-like) ============
-
-model CustomPage {
-  id        String   @id @default(cuid())
-  title     String   @default("Untitled")
-  icon      String?  @default("📄")
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  blocks    Block[]
-  order     Int      @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model InvoiceItem {
+  id          String   @id @default(cuid())
+  description String
+  quantity    Int
+  unitPrice   Float
+  total       Float
+  invoiceId   String
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 }
 
-model Block {
-  id        String   @id @default(cuid())
-  type      String   // text, heading1, heading2, heading3, list, checklist, divider, code
-  content   Json     @default("{}")
-  order     Int      @default(0)
-  pageId    String
-  page      CustomPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+enum InvoiceStatus {
+  DRAFT
+  COMPLETED
 }

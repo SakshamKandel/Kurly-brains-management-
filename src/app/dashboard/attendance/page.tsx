@@ -128,7 +128,7 @@ export default function AttendancePage() {
             <Breadcrumb />
 
             {/* Top Action Area */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px', marginTop: '24px' }}>
+            <div className="responsive-stack" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px', marginTop: '24px' }}>
                 <Card padding="md" style={{ display: 'flex', alignItems: 'center', gap: '24px', width: '100%', maxWidth: '400px' }}>
                     <div style={{
                         width: '48px', height: '48px',

@@ -3,6 +3,7 @@
 import { SessionProvider, useSession } from "next-auth/react";
 import dynamic from "next/dynamic";
 import { Suspense, memo } from "react";
+import { Menu } from "lucide-react";
 import Sidebar from "@/components/layout/Sidebar";
 import { SidebarProvider, useSidebar } from "@/lib/contexts/SidebarContext";
 import { ToastProvider } from "@/components/ui/Toast";
@@ -28,6 +29,10 @@ const ContextQuickActions = dynamic(() => import("@/components/ui/ContextQuickAc
     ssr: false,
 });
 
+const AIChatPalette = dynamic(() => import("@/components/ui/AIChatPalette"), {
+    ssr: false,
+});
+
 const ForcePasswordChangeModal = dynamic(
     () => import("@/components/auth/ForcePasswordChangeModal"),
     { ssr: false }
@@ -44,7 +49,7 @@ const DashboardContent = memo(function DashboardContent({
 }: {
     children: React.ReactNode
 }) {
-    const { isCollapsed } = useSidebar();
+    const { isCollapsed, isMobileOpen, setIsMobileOpen } = useSidebar();
     const { data: session } = useSession();
 
     // @ts-ignore
@@ -58,12 +63,25 @@ const DashboardContent = memo(function DashboardContent({
                 </Suspense>
             )}
             <Sidebar />
+            <button
+                className="mobile-sidebar-toggle"
+                aria-label={isMobileOpen ? "Close navigation" : "Open navigation"}
+                onClick={() => setIsMobileOpen(!isMobileOpen)}
+            >
+                <Menu size={18} />
+            </button>
+            <button
+                className="ai-fab"
+                aria-label="Open Kurly AI"
+                onClick={() => window.dispatchEvent(new Event("open-ai-chat"))}
+            >
+                ✨
+            </button>
             <main
                 className="main-content"
                 style={{
-                    paddingLeft: isCollapsed ? '52px' : '240px',
-                    minHeight: '100vh',
-                    transition: 'padding-left 0.2s ease'
+                    // CSS handles padding and mobile overrides.
+                    ["--sidebar-space" as any]: isCollapsed ? "52px" : "240px",
                 }}
             >
                 <Suspense fallback={null}>
@@ -83,6 +101,9 @@ const DashboardContent = memo(function DashboardContent({
             </Suspense>
             <Suspense fallback={null}>
                 <ContextQuickActions />
+            </Suspense>
+            <Suspense fallback={null}>
+                <AIChatPalette />
             </Suspense>
             <SkeletonStyles />
         </div>

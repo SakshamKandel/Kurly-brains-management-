@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   LayoutDashboard,
   Users,
@@ -18,6 +18,7 @@ import {
   ChevronsRight,
   Search,
   Key,
+  FileText,
 } from "lucide-react";
 import { preload } from "swr";
 import Avatar from "@/components/ui/Avatar";
@@ -40,13 +41,14 @@ const navItems = [
 
 const adminItems = [
   { id: "admin", href: "/dashboard/admin", label: "Admin Panel", Icon: Shield },
+  { id: "invoices", href: "/dashboard/invoices", label: "Invoices", Icon: FileText },
 ];
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const prevPathRef = useRef(pathname);
   const { data: session } = useSession();
-  const { isCollapsed, setIsCollapsed, notificationCounts } = useSidebar();
-  const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const { isCollapsed, setIsCollapsed, notificationCounts, isMobileOpen, setIsMobileOpen } = useSidebar();
 
   // Allow ADMIN, SUPER_ADMIN, and MANAGER to see the admin panel
   const isAdmin = ["ADMIN", "SUPER_ADMIN", "MANAGER"].includes(session?.user?.role || "");
@@ -56,39 +58,50 @@ export default function Sidebar() {
     const handleResize = () => {
       if (window.innerWidth < 1024) {
         setIsCollapsed(true);
+      } else {
+        setIsCollapsed(false);
+        setIsMobileOpen(false);
       }
     };
     window.addEventListener('resize', handleResize);
     handleResize();
     return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  }, [setIsCollapsed, setIsMobileOpen]);
 
   const isActiveRoute = (href: string) => {
     if (href === "/dashboard") return pathname === "/dashboard";
     return pathname.startsWith(href);
   };
 
-  const sidebarWidth = isCollapsed ? '52px' : '240px';
+  const isCompact = isCollapsed && !isMobileOpen;
+  const sidebarWidth = isCompact ? '52px' : '240px';
+
+  useEffect(() => {
+    if (!isMobileOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [isMobileOpen]);
+
+  useEffect(() => {
+    if (isMobileOpen && prevPathRef.current !== pathname) {
+      setIsMobileOpen(false);
+    }
+    prevPathRef.current = pathname;
+  }, [pathname, isMobileOpen, setIsMobileOpen]);
 
   return (
     <>
       {/* Mobile Overlay */}
       {isMobileOpen && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            zIndex: 'var(--z-sidebar)',
-            backdropFilter: 'blur(2px)'
-          }}
-          onClick={() => setIsMobileOpen(false)}
-        />
+        <div className="sidebar-overlay" onClick={() => setIsMobileOpen(false)} />
       )}
 
       {/* Sidebar Container */}
       <aside
-        className="sidebar"
+        className={`sidebar ${isCompact ? "sidebar--collapsed" : ""} ${isMobileOpen ? "sidebar--mobile-open" : ""}`}
         style={{
           width: sidebarWidth,
           height: '100vh',
@@ -118,13 +131,13 @@ export default function Sidebar() {
             height: '48px',
             display: 'flex',
             alignItems: 'center',
-            padding: isCollapsed ? '0 12px' : '0 16px',
-            justifyContent: isCollapsed ? 'center' : 'space-between',
+            padding: isCompact ? '0 12px' : '0 16px',
+            justifyContent: isCompact ? 'center' : 'space-between',
             borderBottom: '1px solid var(--notion-divider)',
             flexShrink: 0
           }}
         >
-          {!isCollapsed ? (
+          {!isCompact ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden' }}>
               <img
                 src="/logo-white.png"
@@ -161,12 +174,12 @@ export default function Sidebar() {
           )}
 
           {/* Right side actions when expanded */}
-          {!isCollapsed && (
+          {!isCompact && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
               <NotificationCenter />
               <button
                 onClick={() => setIsCollapsed(!isCollapsed)}
-                className="hover-bg"
+                className="hover-bg sidebar-collapse-btn"
                 style={{
                   background: 'transparent',
                   border: 'none',
@@ -180,13 +193,13 @@ export default function Sidebar() {
                 }}
               >
                 <ChevronsLeft size={16} />
-              </button>
+                </button>
             </div>
           )}
         </div>
 
         {/* Search (Notion Style) - Opens Command Palette */}
-        {!isCollapsed && (
+        {!isCompact && (
           <div style={{ padding: '12px 14px 4px 14px' }}>
             <button
               onClick={() => {
@@ -229,7 +242,7 @@ export default function Sidebar() {
           {/* Main Items - Now Draggable */}
           <DraggableNav
             items={navItems}
-            isCollapsed={isCollapsed}
+            isCollapsed={isCompact}
             notificationCounts={{
               messages: notificationCounts.messages,
               tasks: notificationCounts.tasks,
@@ -238,9 +251,9 @@ export default function Sidebar() {
           />
 
           {/* Admin Items */}
-          {isAdmin && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '24px' }}>
-              {!isCollapsed && (
+            {isAdmin && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '24px' }}>
+              {!isCompact && (
                 <div style={{
                   padding: '4px 12px',
                   fontSize: '11px',
@@ -259,13 +272,13 @@ export default function Sidebar() {
                   <Link
                     key={item.href}
                     href={item.href}
-                    title={isCollapsed ? item.label : undefined}
+                    title={isCompact ? item.label : undefined}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
                       gap: '10px',
-                      padding: isCollapsed ? '8px' : '6px 12px',
-                      justifyContent: isCollapsed ? 'center' : 'flex-start',
+                      padding: isCompact ? '8px' : '6px 12px',
+                      justifyContent: isCompact ? 'center' : 'flex-start',
                       color: active ? 'var(--notion-text)' : 'var(--notion-text-secondary)',
                       backgroundColor: active ? 'var(--notion-bg-tertiary)' : 'transparent',
                       textDecoration: 'none',
@@ -278,7 +291,7 @@ export default function Sidebar() {
                     className="hover-bg"
                   >
                     <Icon size={18} strokeWidth={1.5} />
-                    {!isCollapsed && <span>{item.label}</span>}
+                    {!isCompact && <span>{item.label}</span>}
                   </Link>
                 );
               })}
@@ -287,7 +300,7 @@ export default function Sidebar() {
 
           {/* Custom Pages Section */}
           <div style={{ marginTop: '16px', borderTop: '1px solid var(--notion-divider)', paddingTop: '8px' }}>
-            <CustomPagesSidebar isCollapsed={isCollapsed} />
+          <CustomPagesSidebar isCollapsed={isCompact} />
           </div>
         </div>
 
@@ -304,7 +317,7 @@ export default function Sidebar() {
             <Avatar name={session?.user?.name || "User"} size="sm" style={{ cursor: 'pointer' }} />
           </Link>
 
-          {!isCollapsed && (
+          {!isCompact && (
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{
                 fontSize: '13px',
@@ -322,7 +335,7 @@ export default function Sidebar() {
             </div>
           )}
 
-          {!isCollapsed && (
+          {!isCompact && (
             <button
               onClick={() => signOut({ callbackUrl: "/" })}
               style={{

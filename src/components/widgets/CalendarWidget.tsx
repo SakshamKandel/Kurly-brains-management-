@@ -52,8 +52,8 @@ export default function CalendarWidget() {
             {/* Calendar Grid */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "4px", fontSize: "12px", flex: 1 }}>
                 {/* Weekdays */}
-                {["S", "M", "T", "W", "T", "F", "S"].map(d => (
-                    <div key={d} style={{ color: "var(--notion-text-muted)", textAlign: "center", paddingBottom: "4px", fontSize: "10px", fontWeight: 600 }}>{d}</div>
+                {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
+                    <div key={`day-${i}`} style={{ color: "var(--notion-text-muted)", textAlign: "center", paddingBottom: "4px", fontSize: "10px", fontWeight: 600 }}>{d}</div>
                 ))}
 
                 {/* Empty Days */}

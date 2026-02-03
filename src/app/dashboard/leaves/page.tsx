@@ -327,7 +327,7 @@ export default function LeavesPage() {
                         />
                     </div>
 
-                    <div style={{ display: 'flex', gap: '12px' }}>
+                    <div className="responsive-stack">
                         <div style={{ flex: 1 }}>
                             <Input
                                 type="date"

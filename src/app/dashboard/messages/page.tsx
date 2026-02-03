@@ -81,26 +81,10 @@ export default function MessagesPage() {
       <PageContainer title="Messages" icon="💬">
         <Breadcrumb />
 
-        <div style={{
-          display: "flex",
-          height: "calc(100vh - 180px)",
-          marginTop: "var(--space-5)",
-          border: "1px solid var(--notion-border)",
-          borderRadius: "var(--radius-md)",
-          overflow: "hidden",
-          backgroundColor: "var(--notion-bg)",
-          minHeight: "500px",
-        }}>
+        <div className="messages-layout">
 
           {/* Contacts Sidebar */}
-          <div style={{
-            width: "300px",
-            minWidth: "300px",
-            borderRight: "1px solid var(--notion-border)",
-            display: "flex",
-            flexDirection: "column",
-            backgroundColor: "var(--notion-bg-secondary)",
-          }}>
+          <div className="messages-sidebar">
             {/* Header */}
             <div style={{
               padding: "var(--space-3) var(--space-4)",
@@ -178,12 +162,7 @@ export default function MessagesPage() {
           </div>
 
           {/* Chat Area */}
-          <div style={{
-            flex: 1,
-            display: "flex",
-            flexDirection: "column",
-            backgroundColor: "var(--notion-bg)",
-          }}>
+          <div className="messages-chat">
             {selectedUser ? (
               <>
                 {/* Chat Header */}

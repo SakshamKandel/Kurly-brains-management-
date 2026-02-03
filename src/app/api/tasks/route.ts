@@ -7,7 +7,12 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
     try {
         const session = await auth();
+
+        // DEBUG: Log session details
+        console.log("[TASKS API] Session:", JSON.stringify(session, null, 2));
+
         if (!session?.user?.id) {
+            console.log("[TASKS API] No session or user ID - returning 401");
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
@@ -18,8 +23,11 @@ export async function GET(request: Request) {
         // Get user role to determine visibility
         const currentUser = await prisma.user.findUnique({
             where: { id: session.user.id },
-            select: { role: true },
+            select: { role: true, email: true },
         });
+
+        // DEBUG: Log current user from DB
+        console.log("[TASKS API] Current user from DB:", JSON.stringify(currentUser, null, 2));
 
         // Build the where clause based on user role
         let whereClause: any = {
@@ -31,6 +39,8 @@ export async function GET(request: Request) {
         // ADMIN and regular staff can only see tasks they created or are assigned to them
         const isSuperAdmin = currentUser?.role === "SUPER_ADMIN";
 
+        console.log("[TASKS API] Is SUPER_ADMIN:", isSuperAdmin, "Role:", currentUser?.role);
+
         if (!isSuperAdmin) {
             whereClause = {
                 ...whereClause,
@@ -41,6 +51,8 @@ export async function GET(request: Request) {
             };
         }
 
+        console.log("[TASKS API] Where clause:", JSON.stringify(whereClause, null, 2));
+
         const tasks = await prisma.task.findMany({
             where: whereClause,
             include: {
@@ -49,6 +61,8 @@ export async function GET(request: Request) {
             },
             orderBy: [{ priority: "desc" }, { createdAt: "desc" }],
         });
+
+        console.log("[TASKS API] Found tasks:", tasks.length);
 
         return NextResponse.json(tasks);
     } catch (error) {
