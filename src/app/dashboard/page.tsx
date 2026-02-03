@@ -4,20 +4,18 @@ import { useSession } from "next-auth/react";
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import {
-  Users,
   CheckSquare,
   MessageSquare,
-  Clock,
-  Calendar,
-  Megaphone,
   ArrowRight,
   Shield,
   Plus,
-  GripVertical
+  GripVertical,
+  LayoutDashboard
 } from "lucide-react";
 import PageContainer from "@/components/layout/PageContainer";
 import Breadcrumb from "@/components/layout/Breadcrumb";
 import Button from "@/components/ui/Button";
+import GlobalActionMenu from "@/components/layout/GlobalActionMenu";
 import { Card } from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import { TaskHoverPreview } from "@/components/ui/HoverPreview";
@@ -29,12 +27,8 @@ import QuickNotesWidget from "@/components/widgets/QuickNotesWidget";
 import CalendarWidget from "@/components/widgets/CalendarWidget";
 
 interface DashboardStats {
-  totalUsers: number;
   activeTasks: number;
-  pendingLeaves: number;
-  todayAttendance: number;
   unreadMessages: number;
-  newAnnouncements: number;
   completedTasks: number;
 }
 
@@ -61,15 +55,21 @@ interface WidgetConfig {
 }
 
 import RecentInvoicesWidget from "@/components/widgets/RecentInvoicesWidget";
+import ClockWidget from "@/components/widgets/ClockWidget";
+import QuoteWidget from "@/components/widgets/QuoteWidget";
+import TodoWidget from "@/components/widgets/TodoWidget";
 
 const WIDGET_CONFIGS: WidgetConfig[] = [
   { id: "pomodoro", component: PomodoroWidget, name: "Pomodoro" },
   { id: "notes", component: QuickNotesWidget, name: "Quick Notes" },
   { id: "calendar", component: CalendarWidget, name: "Calendar" },
   { id: "recent_invoices", component: RecentInvoicesWidget, name: "Recent Invoices" },
+  { id: "clock", component: ClockWidget, name: "World Clock" },
+  { id: "quote", component: QuoteWidget, name: "Daily Quote" },
+  { id: "todos", component: TodoWidget, name: "Quick Tasks" },
 ];
 
-const STORAGE_KEY = "kurly-widget-order";
+const STORAGE_KEY = "kurly-widget-order-v2";
 
 const USER_BADGES: BadgeType[] = ["early_adopter", "task_master", "fast_responder"];
 
@@ -117,7 +117,7 @@ export default function DashboardPage() {
       if (res.ok) {
         const data = await res.json();
         setStats(data.stats);
-        setActivity(data.recentActivity || []);
+        setActivity((data.recentActivity || []).filter((i: ActivityItem) => ['task', 'message'].includes(i.type)));
       }
     } catch (error) {
       console.error("Failed to fetch dashboard data:", error);
@@ -183,12 +183,8 @@ export default function DashboardPage() {
     .filter(Boolean) as WidgetConfig[];
 
   const dashboardItems = [
-    { label: "Directory", count: stats?.totalUsers, icon: Users, href: "/dashboard/directory", color: "var(--notion-blue)" },
     { label: "Tasks", count: stats?.activeTasks, icon: CheckSquare, href: "/dashboard/tasks", color: "var(--notion-red)" },
-    { label: "Leaves", count: stats?.pendingLeaves, icon: Calendar, href: "/dashboard/leaves", color: "var(--notion-yellow)" },
-    { label: "Attendance", count: stats?.todayAttendance, icon: Clock, href: "/dashboard/attendance", color: "var(--notion-green)" },
     { label: "Messages", count: stats?.unreadMessages, icon: MessageSquare, href: "/dashboard/messages", color: "var(--notion-purple)" },
-    { label: "Announcements", count: stats?.newAnnouncements, icon: Megaphone, href: "/dashboard/announcements", color: "var(--notion-pink)" },
   ];
 
   const isAdmin = session?.user?.role === "ADMIN";
@@ -205,7 +201,11 @@ export default function DashboardPage() {
       title="Dashboard"
       icon="📊"
       action={
-        <Button size="sm" icon={<Plus size={14} />} onClick={() => setShowWidgetPicker(true)}>Add Widget</Button>
+        <div className="flex items-center gap-2">
+          <GlobalActionMenu />
+          <Button size="sm" variant="ghost" icon={<LayoutDashboard size={16} />} onClick={() => window.dispatchEvent(new Event("toggle-focus-mode"))} title="Toggle Zen Mode" />
+          <Button size="sm" icon={<Plus size={14} />} onClick={() => setShowWidgetPicker(true)}>Add Widget</Button>
+        </div>
       }
     >
       <Breadcrumb />
@@ -442,9 +442,7 @@ export default function DashboardPage() {
                 borderRadius: "3px",
               }}>
                 {item.type === "task" && <CheckSquare size={12} />}
-                {item.type === "leave" && <Calendar size={12} />}
                 {item.type === "message" && <MessageSquare size={12} />}
-                {item.type === "attendance" && <Clock size={12} />}
               </div>
               <div style={{ flex: 1, fontSize: "14px", color: "var(--notion-text)" }}>{item.title}</div>
               <div style={{ fontSize: "12px", color: "var(--notion-text-secondary)" }}>{item.time}</div>

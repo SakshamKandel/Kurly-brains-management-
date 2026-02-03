@@ -87,11 +87,10 @@ export default function KeyboardShortcuts() {
             return;
         }
 
-        // Toggle sidebar with Cmd/Ctrl + \
+        // Toggle Zen Mode with Cmd/Ctrl + \
         if ((e.metaKey || e.ctrlKey) && e.key === "\\") {
             e.preventDefault();
-            // Dispatch custom event for sidebar toggle
-            window.dispatchEvent(new CustomEvent("toggle-sidebar"));
+            window.dispatchEvent(new Event("toggle-focus-mode"));
             return;
         }
     }, [pendingKey, router]);

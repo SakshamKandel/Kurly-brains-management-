@@ -9,8 +9,10 @@ import { SidebarProvider, useSidebar } from "@/lib/contexts/SidebarContext";
 import { ToastProvider } from "@/components/ui/Toast";
 import { CelebrationProvider } from "@/components/ui/Celebration";
 import { FocusModeProvider } from "@/components/ui/FocusMode";
+import { SystemHealthProvider } from "@/lib/contexts/SystemHealthContext";
 import { SkeletonStyles } from "@/components/ui/Skeleton";
 import DashboardPrefetcher from "@/components/dashboard/DashboardPrefetcher";
+import DorianOverlay from "@/components/effects/DorianOverlay";
 
 // Lazy load non-critical components
 const CommandPalette = dynamic(() => import("@/components/ui/CommandPalette"), {
@@ -57,6 +59,7 @@ const DashboardContent = memo(function DashboardContent({
 
     return (
         <div className="dashboard-layout">
+            <DorianOverlay />
             {mustChangePassword && session?.user?.id && (
                 <Suspense fallback={null}>
                     <ForcePasswordChangeModal userId={session.user.id} />
@@ -119,12 +122,14 @@ export default function DashboardLayout({
         <SessionProvider>
             <ToastProvider>
                 <CelebrationProvider>
-                    <FocusModeProvider>
-                        <SidebarProvider>
-                            <DashboardPrefetcher />
-                            <DashboardContent>{children}</DashboardContent>
-                        </SidebarProvider>
-                    </FocusModeProvider>
+                    <SystemHealthProvider>
+                        <FocusModeProvider>
+                            <SidebarProvider>
+                                <DashboardPrefetcher />
+                                <DashboardContent>{children}</DashboardContent>
+                            </SidebarProvider>
+                        </FocusModeProvider>
+                    </SystemHealthProvider>
                 </CelebrationProvider>
             </ToastProvider>
         </SessionProvider>

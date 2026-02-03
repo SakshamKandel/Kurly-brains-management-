@@ -2,8 +2,11 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
+// --- Types ---
+
 interface FullUserData {
     user: {
+        id: string; // Added ID for logic
         name: string;
         email: string;
         role: string;
@@ -45,11 +48,14 @@ interface FullUserData {
     }>;
 }
 
+// --- Data Fetching ---
+
 async function getFullUserData(userId: string): Promise<FullUserData | null> {
     try {
         const user = await prisma.user.findUnique({
             where: { id: userId },
             select: {
+                id: true,
                 firstName: true,
                 lastName: true,
                 email: true,
@@ -118,6 +124,7 @@ async function getFullUserData(userId: string): Promise<FullUserData | null> {
 
         return {
             user: {
+                id: user.id,
                 name: `${user.firstName} ${user.lastName}`,
                 email: user.email,
                 role: user.role,
@@ -184,9 +191,6 @@ function buildContextString(data: FullUserData): string {
 
     if (data.pages.length > 0) {
         lines.push(`\nPAGES: ${data.pages.length} custom pages`);
-        data.pages.slice(0, 3).forEach(p => {
-            lines.push(`  * [Page] ${p.title}`);
-        });
     }
 
     if (data.credentials.length > 0) {
@@ -199,10 +203,131 @@ function buildContextString(data: FullUserData): string {
     return lines.join("\n");
 }
 
+// --- Action Logic ---
+
+async function handleAction(userId: string, actionType: string, actionData: any): Promise<string> {
+    console.log(`[Action Mode] Executing ${actionType}`, actionData);
+
+    try {
+        const userExists = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
+        if (!userExists) {
+            return "❌ Action failed: authenticated user not found in database.";
+        }
+        if (actionType === "create_task") {
+            const { title, priority = "MEDIUM" } = actionData;
+            if (!title) return "❌ Failed: Task title is missing.";
+
+            const task = await prisma.task.create({
+                data: {
+                    title,
+                    status: "TODO",
+                    priority: ["LOW", "MEDIUM", "HIGH", "URGENT"].includes(priority) ? priority : "MEDIUM",
+                    creatorId: userId,
+                    assigneeId: userId, // Self-assign by default for now
+                }
+            });
+            return `✅ Task created: "${task.title}" (Priority: ${task.priority})`;
+        }
+
+        if (actionType === "clock_action") {
+            const { action } = actionData; // "IN" or "OUT"
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            const existing = await prisma.attendance.findUnique({
+                where: {
+                    userId_date: { userId, date: today }
+                }
+            });
+
+            if (action === "IN") {
+                if (existing) return "⚠️ You are already clocked in for today.";
+                await prisma.attendance.create({
+                    data: {
+                        userId,
+                        date: today, // Fixed time 00:00:00 for uniqueness check
+                        clockIn: new Date(),
+                        status: "PRESENT"
+                    }
+                });
+                return "✅ Clocked IN successfully.";
+            } else if (action === "OUT") {
+                if (!existing) return "⚠️ You haven't clocked in yet today.";
+                if (existing.clockOut) return "⚠️ You are already clocked out.";
+                await prisma.attendance.update({
+                    where: { id: existing.id },
+                    data: { clockOut: new Date() }
+                });
+                return "✅ Clocked OUT successfully.";
+            }
+            return "❌ Invalid attendance action.";
+        }
+
+        if (actionType === "create_invoice") {
+            const { clientName, amount, description } = actionData;
+
+            // 1. Find or Create Client
+            let client = await prisma.client.findFirst({
+                where: {
+                    name: { equals: clientName, mode: 'insensitive' }
+                }
+            });
+
+            // Auto-create if not found
+            if (!client) {
+                console.log(`[Action Mode] Client '${clientName}' not found. Creating new client...`);
+                client = await prisma.client.create({
+                    data: {
+                        name: clientName,
+                        email: "", // Optional, can be filled later
+                        status: "ACTIVE",
+                        creatorId: userId
+                    }
+                });
+            }
+
+            // 2. Generate Invoice Number
+            const count = await prisma.invoice.count();
+            const year = new Date().getFullYear();
+            const invoiceNumber = `INV-${year}-${String(count + 1).padStart(4, '0')}`;
+
+            // 3. Create Invoice
+            const invoice = await prisma.invoice.create({
+                data: {
+                    invoiceNumber,
+                    clientId: client.id,
+                    creatorId: userId,
+                    status: "DRAFT",
+                    subtotal: amount,
+                    taxAmount: 0,
+                    total: amount,
+                    items: {
+                        create: {
+                            description: description || "Consulting Services",
+                            quantity: 1,
+                            unitPrice: amount,
+                            total: amount
+                        }
+                    }
+                }
+            });
+
+            return `✅ Invoice #${invoice.invoiceNumber} created for ${client.name} ($${amount}).`;
+        }
+
+        return "❌ Unknown action type.";
+    } catch (e: any) {
+        console.error("Action execution failed:", e);
+        return `❌ Action failed: ${e.message}`;
+    }
+}
+
+// --- Main Route ---
+
 export async function POST(request: Request) {
     try {
         const session = await auth();
-        const userId = session?.user?.id;
+        const sessionUserId = session?.user?.id || null;
         const { prompt } = await request.json();
 
         if (!prompt || typeof prompt !== "string") {
@@ -211,6 +336,14 @@ export async function POST(request: Request) {
 
         let userData: FullUserData | null = null;
         let contextStr = "";
+        let userId: string | null = null;
+
+        if (sessionUserId) {
+            const userExists = await prisma.user.findUnique({ where: { id: sessionUserId }, select: { id: true } });
+            if (userExists) {
+                userId = sessionUserId;
+            }
+        }
 
         if (userId) {
             userData = await getFullUserData(userId);
@@ -228,13 +361,41 @@ export async function POST(request: Request) {
 ${contextStr ? `=== CURRENT USER CONTEXT & DASHBOARD DATA ===\n${contextStr}\n=== END DATA ===` : "No specific dashboard data available."}
 
 INSTRUCTIONS:
-1. Identity: You are Kurly AI, an intelligent assistant built exclusively for Kurly Brains.
-2. Strict Rule: NEVER mention Perplexity, Llama, or being an AI model. If asked who you are, say "I am Kurly AI, your dashboard assistant."
-3. Format: Use clean, Notion-style formatting (bullet points, bold text). DO NOT use citations or reference numbers.
-4. Tone: Be conversational and direct.
-5. Greetings: Reply to "Hey/Hi" with "Hey! How can I help you be productive today?"
-6. Dashboard Data: Use the provided data for tasks/leaves/stats.
-7. Credentials: Share client passwords ONLY if explicitly asked.`;
+1. Identity: You are Kurly AI, the "Brain" of this dashboard.
+2. Tone: Professional, direct, and helpful. Be conversational but concise.
+3. Capabilities: You can READ data (provided above) and PERFORM ACTIONS.
+4. **LANGUAGE & TRANSLATION**:
+   - You are a POLYGLOT assistant (English, Hindi, Nepali).
+   - If the user speaks/types in HINDI or NEPALI:
+     a. **INTERNALLY TRANSLATE** the request to English to understand the intent.
+     b. Execute the logic/action based on the English meaning.
+     c. **REPLY IN ENGLISH ONLY**, regardless of user language.
+   - Example (Hindi): User "Mera attendance laga do" -> You understand "Clock me in" -> You perform action -> You reply "✅ You have been clocked in."
+
+*** ACTION MODE ***
+If the user asks to perform an action (create task, invoice, attendance), you MUST output a special JSON string at the end of your response.
+Format: [[ACTION:{"type":"...", "data":{...}}]]
+
+Supported Actions:
+A. Create Task:
+   User: "Remind me to check servers tomorrow"
+   Output: [[ACTION:{"type":"create_task", "data":{"title":"Check servers", "priority":"MEDIUM"}}]]
+
+B. Clock In/Out:
+   User: "Clock me in"
+   Output: [[ACTION:{"type":"clock_action", "data":{"action":"IN"}}]]
+   (Use "OUT" to clock out)
+
+C. Create Invoice:
+   User: "Draft invoice for Acme Corp for $500"
+   Output: [[ACTION:{"type":"create_invoice", "data":{"clientName":"Acme Corp", "amount":500, "description":"Services"}}]]
+
+RULES:
+- Only output ONE action per response.
+- If data is missing (e.g. client name), ask the user for it instead of acting.
+- Continue to be chatty. Example: "I'll create that task for you. [[ACTION:...]]"
+- IMPORTANT: The ACTION JSON must always be in ENGLISH keys/values as specified above, even if the user speaks another language.
+`;
 
                 const response = await fetch("https://api.perplexity.ai/chat/completions", {
                     method: "POST",
@@ -243,22 +404,44 @@ INSTRUCTIONS:
                         "Content-Type": "application/json",
                     },
                     body: JSON.stringify({
-                        model: "sonar",
+                        model: "sonar", // Using 'sonar' (formerly llama-3-sonar-large-32k-online)
                         messages: [
                             { role: "system", content: systemPrompt },
                             { role: "user", content: prompt }
                         ],
                         max_tokens: 1024,
-                        temperature: 0.7,
+                        temperature: 0.1, // Lower temperature for reliable actions
                     }),
                 });
 
                 if (response.ok) {
                     const data = await response.json();
                     let aiResponse = data.choices?.[0]?.message?.content;
+
                     if (aiResponse) {
-                        aiResponse = aiResponse.replace(/\[\d+\]/g, "").replace(/\*\*/g, "");
-                        return NextResponse.json({ response: aiResponse });
+                        // Check for ACTION token
+                        const actionMatch = aiResponse.match(/\[\[ACTION:(.*?)\]\]/);
+
+                        // Clean response for the user (remove the raw JSON token)
+                        let textResponse = aiResponse.replace(/\[\[ACTION:.*?\]\]/, "").trim();
+
+                        if (actionMatch && userId) {
+                            try {
+                                const actionJson = JSON.parse(actionMatch[1]);
+                                const actionResult = await handleAction(userId, actionJson.type, actionJson.data);
+
+                                // Append result to the AI's text response
+                                textResponse += `\n\n${actionResult}`;
+                            } catch (e) {
+                                console.error("Failed to parse/execute AI action:", e);
+                                textResponse += "\n\n(I tried to perform the action, but something went wrong.)";
+                            }
+                        }
+
+                        // Remove citations if any
+                        textResponse = textResponse.replace(/\[\d+\]/g, "").replace(/\*\*/g, "");
+
+                        return NextResponse.json({ response: textResponse });
                     }
                 }
             } catch (apiError) {
@@ -266,6 +449,7 @@ INSTRUCTIONS:
             }
         }
 
+        // Fallback for no API key or non-action requests in local dev without key
         const lowerPrompt = prompt.toLowerCase();
         let fallback = "";
 
@@ -312,6 +496,7 @@ INSTRUCTIONS:
         }
 
         return NextResponse.json({ response: fallback });
+
     } catch (error) {
         console.error("AI Chat error:", error);
         return NextResponse.json({

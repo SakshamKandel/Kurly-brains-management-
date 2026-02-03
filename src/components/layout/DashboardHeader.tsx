@@ -13,7 +13,7 @@ interface DashboardHeaderProps {
 
 export default function DashboardHeader({ title, onMenuClick, hideActions }: DashboardHeaderProps) {
     const { data: session } = useSession();
-    const [searchQuery, setSearchQuery] = useState("");
+    const [searchQuery] = useState("");
     const [showNotifications, setShowNotifications] = useState(false);
 
     // Keyboard shortcut for search (Cmd/Ctrl + K)
@@ -93,9 +93,11 @@ export default function DashboardHeader({ title, onMenuClick, hideActions }: Das
                         <Search size={16} color="var(--notion-text-muted)" />
                         <input
                             type="text"
-                            placeholder="Search... (⌘K)"
+                            placeholder="Search or jump... (⌘K)"
                             value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
+                            readOnly
+                            onFocus={() => window.dispatchEvent(new Event("open-command-palette"))}
+                            onClick={() => window.dispatchEvent(new Event("open-command-palette"))}
                             className="search-input"
                             style={{
                                 background: "transparent",

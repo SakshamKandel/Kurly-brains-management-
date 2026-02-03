@@ -24,8 +24,7 @@ export default function Breadcrumb() {
                 gap: "6px",
                 fontSize: "13px",
                 color: "var(--notion-text-secondary)",
-                padding: "16px 0 0 0",
-                marginBottom: "-20px" // Pull it closer to top
+                padding: "6px 0 12px 0", // Adjusted padding for better spacing
             }}
         >
             <Link

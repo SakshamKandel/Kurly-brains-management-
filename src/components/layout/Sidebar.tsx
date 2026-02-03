@@ -6,12 +6,12 @@ import { signOut, useSession } from "next-auth/react";
 import { useState, useEffect, useRef } from "react";
 import {
   LayoutDashboard,
-  Users,
   CheckSquare,
   MessageSquare,
-  Clock,
   Calendar,
-  Megaphone,
+  CalendarDays,
+  Clock,
+  Users,
   LogOut,
   Shield,
   ChevronsLeft,
@@ -31,11 +31,11 @@ import CustomPagesSidebar from "./CustomPagesSidebar";
 const navItems = [
   { id: "dashboard", href: "/dashboard", label: "Dashboard", Icon: LayoutDashboard },
   { id: "tasks", href: "/dashboard/tasks", label: "Tasks", Icon: CheckSquare },
-  { id: "directory", href: "/dashboard/directory", label: "Directory", Icon: Users },
   { id: "messages", href: "/dashboard/messages", label: "Messages", Icon: MessageSquare },
-  { id: "attendance", href: "/dashboard/attendance", label: "Attendance", Icon: Clock },
+  { id: "calendar", href: "/dashboard/calendar", label: "Work Calendar", Icon: CalendarDays },
   { id: "leaves", href: "/dashboard/leaves", label: "Leaves", Icon: Calendar },
-  { id: "announcements", href: "/dashboard/announcements", label: "Announcements", Icon: Megaphone },
+  { id: "attendance", href: "/dashboard/attendance", label: "Attendance", Icon: Clock },
+  { id: "directory", href: "/dashboard/directory", label: "Directory", Icon: Users },
   { id: "credentials", href: "/dashboard/credentials", label: "Credentials", Icon: Key },
 ];
 
@@ -193,7 +193,7 @@ export default function Sidebar() {
                 }}
               >
                 <ChevronsLeft size={16} />
-                </button>
+              </button>
             </div>
           )}
         </div>
@@ -251,8 +251,8 @@ export default function Sidebar() {
           />
 
           {/* Admin Items */}
-            {isAdmin && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '24px' }}>
+          {isAdmin && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '24px' }}>
               {!isCompact && (
                 <div style={{
                   padding: '4px 12px',
@@ -300,7 +300,7 @@ export default function Sidebar() {
 
           {/* Custom Pages Section */}
           <div style={{ marginTop: '16px', borderTop: '1px solid var(--notion-divider)', paddingTop: '8px' }}>
-          <CustomPagesSidebar isCollapsed={isCompact} />
+            <CustomPagesSidebar isCollapsed={isCompact} />
           </div>
         </div>
 

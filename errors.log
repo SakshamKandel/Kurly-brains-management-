@@ -1,0 +1,13 @@
+﻿src/app/actions/dashboard.ts(34,20): error TS2345: Argument of type '{ id: string; type: "leave"; title: string; subtitle: string; severity: "high"; date: Date; actions: readonly ["approve", "reject"]; metadata: { requesterId: string; }; }' is not assignable to parameter of type 'AttentionItem'.
+  Types of property 'actions' are incompatible.
+    The type 'readonly ["approve", "reject"]' is 'readonly' and cannot be assigned to the mutable type '("approve" | "reject" | "view" | "complete")[]'.
+src/app/actions/dashboard.ts(55,20): error TS2345: Argument of type '{ id: string; type: "invoice"; title: string; subtitle: string; severity: "medium"; date: Date; actions: readonly ["view"]; }' is not assignable to parameter of type 'AttentionItem'.
+  Types of property 'actions' are incompatible.
+    The type 'readonly ["view"]' is 'readonly' and cannot be assigned to the mutable type '("approve" | "reject" | "view" | "complete")[]'.
+src/app/actions/dashboard.ts(80,16): error TS2345: Argument of type '{ id: string; type: "task"; title: string; subtitle: string; severity: "high" | "medium"; date: Date; actions: readonly ["complete", "view"]; }' is not assignable to parameter of type 'AttentionItem'.
+  Types of property 'actions' are incompatible.
+    The type 'readonly ["complete", "view"]' is 'readonly' and cannot be assigned to the mutable type '("approve" | "reject" | "view" | "complete")[]'.
+src/app/actions/dashboard.ts(101,16): error TS2345: Argument of type '{ id: string; type: "message"; title: string; subtitle: string; severity: "medium"; date: Date; actions: readonly ["view"]; }' is not assignable to parameter of type 'AttentionItem'.
+  Types of property 'actions' are incompatible.
+    The type 'readonly ["view"]' is 'readonly' and cannot be assigned to the mutable type '("approve" | "reject" | "view" | "complete")[]'.
+src/app/dashboard/calendar/page.tsx(781,27): error TS2322: Type '"lg"' is not assignable to type '"sm" | "md" | "none" | undefined'.

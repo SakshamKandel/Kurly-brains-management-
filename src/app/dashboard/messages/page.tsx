@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
+import { useSearchParams } from "next/navigation";
 import { Search, MessageCircle, MoreVertical, Users } from "lucide-react";
 import PageContainer from "@/components/layout/PageContainer";
 import Breadcrumb from "@/components/layout/Breadcrumb";
@@ -23,8 +24,9 @@ interface User {
 
 export default function MessagesPage() {
   const { data: session } = useSession();
+  const searchParams = useSearchParams();
   const [users, setUsers] = useState<User[]>([]);
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(searchParams.get("userId"));
   const [searchQuery, setSearchQuery] = useState("");
   const [usersLoading, setUsersLoading] = useState(true);
 
@@ -50,7 +52,16 @@ export default function MessagesPage() {
       }
     };
     fetchUsers();
+    fetchUsers();
   }, [session]);
+
+  // Sync with URL params
+  useEffect(() => {
+    const userIdFromUrl = searchParams.get("userId");
+    if (userIdFromUrl) {
+      setSelectedUserId(userIdFromUrl);
+    }
+  }, [searchParams]);
 
   // Get selected user info
   const selectedUser = selectedUserId

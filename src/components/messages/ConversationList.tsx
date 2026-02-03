@@ -7,7 +7,7 @@ interface Conversation {
     id: string;
     isGroup?: boolean;
     name?: string | null;
-    otherUser: { id: string; firstName: string; lastName: string } | null;
+    otherUser: { id: string; firstName: string; lastName: string; lastActive?: string | null } | null;
     memberCount?: number;
     lastMessage: {
         content: string;
@@ -106,7 +106,22 @@ export default function ConversationList({
                         }}
                     >
                         {/* Avatar */}
-                        <Avatar name={fullName} size="md" />
+                        <div style={{ position: 'relative' }}>
+                            <Avatar name={fullName} size="md" />
+                            {user.lastActive && new Date(user.lastActive).getTime() > Date.now() - 5 * 60 * 1000 && (
+                                <div style={{
+                                    position: 'absolute',
+                                    bottom: -2,
+                                    right: -2,
+                                    width: 10,
+                                    height: 10,
+                                    backgroundColor: 'var(--notion-green)',
+                                    borderRadius: '50%',
+                                    border: '2px solid var(--notion-bg)',
+                                    zIndex: 10
+                                }} />
+                            )}
+                        </div>
 
                         {/* Content */}
                         <div style={{ flex: 1, minWidth: 0 }}>

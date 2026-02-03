@@ -19,6 +19,7 @@ model User {
   position             String?
   role                 Role               @default(STAFF)
   status               UserStatus         @default(ACTIVE)
+  lastActive           DateTime?
   createdAt            DateTime           @default(now())
   updatedAt            DateTime           @updatedAt
   managerId            String?
