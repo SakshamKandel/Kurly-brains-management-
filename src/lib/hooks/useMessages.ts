@@ -21,7 +21,7 @@ interface Conversation {
     id: string;
     isGroup: boolean;
     name: string | null;
-    otherUser: { id: string; firstName: string; lastName: string } | null;
+    otherUser: { id: string; firstName: string; lastName: string; avatar?: string | null; lastActive?: string | null } | null;
     lastMessage: {
         content: string;
         createdAt: string;

@@ -23,6 +23,7 @@ interface User {
   department?: string;
   position?: string;
   createdAt: string;
+  avatar?: string | null;
 }
 
 interface NewStaffForm {
@@ -492,7 +493,7 @@ export default function AdminDashboardPage() {
                     <tr key={user.id} style={{ borderTop: '1px solid var(--notion-divider)', backgroundColor: index % 2 === 0 ? 'transparent' : 'var(--notion-bg-secondary)' }}>
                       <td style={{ padding: '12px 16px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                          <Avatar name={`${user.firstName} ${user.lastName}`} size="sm" />
+                          <Avatar src={user.avatar || undefined} name={`${user.firstName} ${user.lastName}`} size="sm" />
                           <div>
                             <div style={{ fontWeight: 500, color: 'var(--notion-text)' }}>{user.firstName} {user.lastName}</div>
                             <div style={{ fontSize: '12px', color: 'var(--notion-text-muted)' }}>{user.email}</div>

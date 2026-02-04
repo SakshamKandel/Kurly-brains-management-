@@ -281,7 +281,7 @@ body {
     align-items: stretch;
   }
 
-  .responsive-stack > * {
+  .responsive-stack>* {
     width: 100%;
   }
 
@@ -604,6 +604,26 @@ body {
 
 .btn-secondary:active {
   background-color: var(--notion-bg-active);
+}
+
+/* Avatar component base style */
+.avatar {
+  position: relative;
+  border-radius: 50%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--notion-bg-tertiary);
+  color: var(--notion-text);
+  font-weight: 600;
+}
+
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
 }
 
 /* ============================================

@@ -314,7 +314,7 @@ export default function Sidebar() {
           justifyContent: isCollapsed ? 'center' : 'flex-start'
         }}>
           <Link href="/dashboard/profile">
-            <Avatar name={session?.user?.name || "User"} size="sm" style={{ cursor: 'pointer' }} />
+            <Avatar src={session?.user?.image || undefined} name={session?.user?.name || "User"} size="sm" style={{ cursor: 'pointer' }} />
           </Link>
 
           {!isCompact && (

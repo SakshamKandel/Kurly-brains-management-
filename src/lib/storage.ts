@@ -36,8 +36,16 @@ export async function uploadToR2(
         ContentType: contentType,
     });
 
+    console.log("Starting R2 Upload...", {
+        bucket: R2_BUCKET_NAME,
+        key: sanitizedKey,
+        size: file.length,
+        hasCreds: !!R2_ACCESS_KEY_ID && !!R2_SECRET_ACCESS_KEY
+    });
+
     try {
         await S3.send(command);
+        console.log("R2 Upload Successful");
 
         // If a public URL domain is provided, use it
         if (R2_PUBLIC_URL) {

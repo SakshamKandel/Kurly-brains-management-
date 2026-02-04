@@ -14,14 +14,27 @@ export async function GET() {
 
         // Using $queryRaw to bypass Prisma Client generation lock (EPERM) on Windows
         // This ensures we get the 'lastActive' field even if the client types are stale.
-        const users = await prisma.$queryRaw`
-            SELECT 
-                id, email, "firstName", "lastName", avatar, phone, 
-                department, position, role, status, "lastActive", 
-                "mustChangePassword", "createdAt"
-            FROM "User"
-            ORDER BY role ASC, "firstName" ASC
-        `;
+        const users = await prisma.user.findMany({
+            select: {
+                id: true,
+                email: true,
+                firstName: true,
+                lastName: true,
+                avatar: true,
+                phone: true,
+                department: true,
+                position: true,
+                role: true,
+                status: true,
+                lastActive: true,
+                mustChangePassword: true,
+                createdAt: true,
+            },
+            orderBy: [
+                { role: 'asc' },
+                { firstName: 'asc' }
+            ]
+        });
 
         return NextResponse.json(users);
     } catch (error) {

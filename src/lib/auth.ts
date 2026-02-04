@@ -62,13 +62,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                     // This prevents stale session data when roles/flags are changed by admins
                     const user = await prisma.user.findUnique({
                         where: { id: token.id as string },
-                        select: { role: true, mustChangePassword: true, lastActive: true }
+                        select: { role: true, mustChangePassword: true, lastActive: true, avatar: true }
                     });
 
                     if (user) {
                         session.user.role = user.role;
                         // @ts-ignore
                         session.user.mustChangePassword = user.mustChangePassword;
+                        if (user.avatar) {
+                            session.user.image = user.avatar;
+                        }
 
                         // Update lastActive if it's been more than 1 minute
                         const now = new Date();
@@ -88,6 +91,23 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 }
             }
             return session;
+        },
+    },
+    events: {
+        async signOut(message) {
+            if ('token' in message && message.token?.id) {
+                try {
+                    // Set lastActive to 5 minutes ago to immediately show as "Active 5m ago" (Offline)
+                    // instead of keeping them "Online" until the 1 minute timeout naturally expires
+                    const offlineBufferedTime = new Date(Date.now() - 5 * 60 * 1000);
+                    await prisma.user.update({
+                        where: { id: message.token.id as string },
+                        data: { lastActive: offlineBufferedTime },
+                    });
+                } catch (error) {
+                    console.error("Error setting offline status:", error);
+                }
+            }
         },
     },
 });

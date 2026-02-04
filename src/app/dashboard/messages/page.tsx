@@ -20,6 +20,7 @@ interface User {
   id: string;
   firstName: string;
   lastName: string;
+  avatar?: string | null;
 }
 
 export default function MessagesPage() {
@@ -186,7 +187,7 @@ export default function MessagesPage() {
                   backgroundColor: "var(--notion-bg-secondary)",
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-                    <Avatar name={`${selectedUser.firstName} ${selectedUser.lastName}`} size="md" />
+                    <Avatar src={selectedUser.avatar || undefined} name={`${selectedUser.firstName} ${selectedUser.lastName}`} size="md" />
                     <div>
                       <div style={{ fontWeight: "600", color: "var(--notion-text)", fontSize: "15px" }}>
                         {selectedUser.firstName} {selectedUser.lastName}

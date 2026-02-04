@@ -37,9 +37,17 @@ const Avatar = forwardRef<HTMLDivElement, AvatarProps>(
         const classes = ['avatar', className].filter(Boolean).join(' ');
 
         return (
-            <div ref={ref} className={classes} style={combinedStyle} {...props}>
+            <div
+                ref={ref}
+                className={classes}
+                style={combinedStyle}
+                {...props}
+            >
                 {src ? (
-                    <img src={src} alt={alt || name} />
+                    <img
+                        src={src}
+                        alt={alt || name}
+                    />
                 ) : (
                     <span>{initials}</span>
                 )}

@@ -7,7 +7,7 @@ interface Conversation {
     id: string;
     isGroup?: boolean;
     name?: string | null;
-    otherUser: { id: string; firstName: string; lastName: string; lastActive?: string | null } | null;
+    otherUser: { id: string; firstName: string; lastName: string; lastActive?: string | null; avatar?: string | null } | null;
     memberCount?: number;
     lastMessage: {
         content: string;
@@ -107,7 +107,7 @@ export default function ConversationList({
                     >
                         {/* Avatar */}
                         <div style={{ position: 'relative' }}>
-                            <Avatar name={fullName} size="md" />
+                            <Avatar src={user.avatar || undefined} name={fullName} size="md" />
                             {user.lastActive && new Date(user.lastActive).getTime() > Date.now() - 60 * 1000 && (
                                 <div style={{
                                     position: 'absolute',

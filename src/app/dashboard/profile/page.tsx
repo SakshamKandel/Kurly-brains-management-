@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import {
     User, Mail, Phone, Building2, Briefcase, Save, Lock,
-    CheckCircle2, MessageCircle, Calendar, Zap, Clock
+    Camera, CheckCircle2, MessageCircle, Calendar, Zap, Clock
 } from "lucide-react";
 
 interface ProfileStats {
@@ -52,6 +52,7 @@ export default function ProfilePage() {
     const [profile, setProfile] = useState<ProfileData | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [uploading, setUploading] = useState(false);
     const [message, setMessage] = useState("");
     const [activeTab, setActiveTab] = useState<"profile" | "security">("profile");
     const [formData, setFormData] = useState({
@@ -88,6 +89,45 @@ export default function ProfilePage() {
             console.error("Failed to fetch profile:", error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setUploading(true);
+        const formData = new FormData();
+        formData.append("file", file);
+
+        try {
+            // 1. Upload to R2
+            const uploadRes = await fetch("/api/upload", {
+                method: "POST",
+                body: formData,
+            });
+
+            if (!uploadRes.ok) throw new Error("Upload failed");
+            const { url } = await uploadRes.json();
+
+            // 2. Update Profile with new Avatar URL
+            const updateRes = await fetch("/api/users/me", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ avatar: url }),
+            });
+
+            if (updateRes.ok) {
+                const updatedUser = await updateRes.json();
+                setProfile(prev => prev ? { ...prev, avatar: updatedUser.avatar } : null);
+                update({ user: { image: updatedUser.avatar } }); // Update session
+                setMessage("Profile picture updated!");
+            }
+        } catch (error) {
+            console.error("Error uploading image:", error);
+            setMessage("Failed to upload image");
+        } finally {
+            setUploading(false);
         }
     };
 
@@ -166,12 +206,27 @@ export default function ProfilePage() {
         <div className="profile-page">
             {/* Header Section */}
             <div className="profile-header">
-                <div className="profile-avatar">
-                    {profile?.avatar ? (
-                        <img src={profile.avatar} alt="Profile" />
-                    ) : (
-                        <span>{getInitials()}</span>
-                    )}
+                <div className="profile-avatar-container">
+                    <label htmlFor="avatar-upload" style={{ cursor: "pointer", display: "block", height: "100%" }}>
+                        <div className="profile-avatar">
+                            {profile?.avatar ? (
+                                <img src={profile.avatar} alt="Profile" />
+                            ) : (
+                                <span>{getInitials()}</span>
+                            )}
+                            <div className="avatar-overlay">
+                                {uploading ? <div className="spinner" style={{ width: 12, height: 12 }} /> : <Camera size={14} />}
+                            </div>
+                        </div>
+                    </label>
+                    <input
+                        id="avatar-upload"
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        style={{ display: "none" }}
+                        disabled={uploading}
+                    />
                 </div>
                 <div className="profile-info">
                     <h1>{profile?.firstName} {profile?.lastName}</h1>
@@ -443,9 +498,17 @@ export default function ProfilePage() {
                     margin-bottom: 24px;
                 }
 
-                .profile-avatar {
+                .profile-avatar-container {
+                    position: relative;
                     width: 72px;
                     height: 72px;
+                    border-radius: 50%;
+                    cursor: pointer;
+                }
+
+                .profile-avatar {
+                    width: 100%;
+                    height: 100%;
                     border-radius: 50%;
                     background: var(--notion-bg-tertiary);
                     display: flex;
@@ -455,13 +518,34 @@ export default function ProfilePage() {
                     font-weight: 600;
                     color: var(--notion-text);
                     overflow: hidden;
-                    flex-shrink: 0;
+                    position: relative;
                 }
 
                 .profile-avatar img {
                     width: 100%;
                     height: 100%;
                     object-fit: cover;
+                }
+
+                .avatar-overlay {
+                    position: absolute;
+                    bottom: 0;
+                    right: 0;
+                    width: 24px;
+                    height: 24px;
+                    background: var(--notion-blue);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    border-radius: 50%;
+                    color: white;
+                    border: 2px solid var(--notion-bg);
+                    z-index: 10;
+                }
+
+                .profile-avatar-container:hover .avatar-overlay {
+                    transform: scale(1.1);
+                    transition: transform 0.2s;
                 }
 
                 .profile-info h1 {

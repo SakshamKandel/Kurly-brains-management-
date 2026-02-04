@@ -21,13 +21,13 @@ export async function GET() {
                 ]
             },
             include: {
-                user1: { select: { id: true, firstName: true, lastName: true } },
-                user2: { select: { id: true, firstName: true, lastName: true } },
+                user1: { select: { id: true, firstName: true, lastName: true, avatar: true, lastActive: true } },
+                user2: { select: { id: true, firstName: true, lastName: true, avatar: true, lastActive: true } },
                 messages: {
                     orderBy: { createdAt: 'desc' },
                     take: 1,
                     include: {
-                        sender: { select: { id: true, firstName: true, lastName: true } }
+                        sender: { select: { id: true, firstName: true, lastName: true, avatar: true } }
                     }
                 }
             },

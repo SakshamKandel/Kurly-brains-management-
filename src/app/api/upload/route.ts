@@ -19,12 +19,15 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 export async function POST(request: Request) {
     try {
         const session = await auth();
+        console.log("Upload: Session verified", { userId: session?.user?.id });
+
         if (!session?.user?.id) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
         const formData = await request.formData();
         const file = formData.get("file") as File | null;
+        console.log("Upload: File received", { name: file?.name, type: file?.type, size: file?.size });
 
         if (!file) {
             return NextResponse.json({ error: "No file provided" }, { status: 400 });
@@ -47,12 +50,16 @@ export async function POST(request: Request) {
         }
 
         // Convert file to buffer
+        console.log("Upload: Reading buffer...");
         const bytes = await file.arrayBuffer();
         const buffer = Buffer.from(bytes);
+        console.log("Upload: Buffer read, size:", buffer.length);
 
         // Upload to R2
         try {
+            console.log("Upload: Calling uploadToR2...");
             const url = await uploadToR2(buffer, file.name, file.type);
+            console.log("Upload: Success, URL:", url);
 
             return NextResponse.json({
                 url,

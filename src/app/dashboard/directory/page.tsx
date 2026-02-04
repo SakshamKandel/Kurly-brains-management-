@@ -20,6 +20,7 @@ interface User {
   phone?: string;
   location?: string;
   lastActive?: string | null;
+  avatar?: string | null;
 }
 
 export default function DirectoryPage() {
@@ -66,19 +67,29 @@ export default function DirectoryPage() {
     const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
 
     if (diffInSeconds < 60) return "Online";
-    if (diffInSeconds < 3600) return `Active ${Math.floor(diffInSeconds / 60)}m ago`;
-    if (diffInSeconds < 86400) return `Active ${Math.floor(diffInSeconds / 3600)}h ago`;
-    if (diffInSeconds < 604800) return `Active ${Math.floor(diffInSeconds / 86400)}d ago`;
 
-    return date.toLocaleDateString();
+    const minutes = Math.floor(diffInSeconds / 60);
+    if (minutes < 60) return `Active ${minutes}m ago`;
+
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `Active ${hours}h ago`;
+
+    const days = Math.floor(hours / 24);
+    if (days < 30) return `Active ${days}d ago`;
+
+    const months = Math.floor(days / 30);
+    if (months < 12) return `Active ${months}mo ago`;
+
+    const years = Math.floor(days / 365);
+    return `Active ${years}y ago`;
   };
 
   const isOnline = (dateString?: string | null) => {
     if (!dateString) return false;
     const date = new Date(dateString);
     const now = new Date();
-    const diffInMinutes = (now.getTime() - date.getTime()) / 1000 / 60;
-    return diffInMinutes < 5; // Consider online if active in last 5 minutes
+    const diffInSeconds = (now.getTime() - date.getTime()) / 1000;
+    return diffInSeconds < 60; // Online if active in last 60 seconds
   };
 
 
@@ -193,7 +204,7 @@ export default function DirectoryPage() {
               {/* Profile Header */}
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
                 <div style={{ position: 'relative' }}>
-                  <Avatar name={`${user.firstName} ${user.lastName}`} size="lg" />
+                  <Avatar src={user.avatar || undefined} name={`${user.firstName} ${user.lastName}`} size="lg" />
                   {isOnline(user.lastActive) && (
                     <div style={{
                       position: 'absolute',
@@ -253,7 +264,7 @@ export default function DirectoryPage() {
                   color: 'var(--notion-text-secondary)'
                 }}>
                   <Clock size={14} style={{ flexShrink: 0, color: 'var(--notion-text-muted)' }} />
-                  <span style={{ color: isOnline(user.lastActive) ? '#22c55e' : 'inherit' }}>
+                  <span style={{ color: isOnline(user.lastActive) ? '#22c55e' : 'var(--notion-text-muted)' }}>
                     {formatLastActive(user.lastActive)}
                   </span>
                 </div>
