@@ -62,13 +62,25 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                     // This prevents stale session data when roles/flags are changed by admins
                     const user = await prisma.user.findUnique({
                         where: { id: token.id as string },
-                        select: { role: true, mustChangePassword: true }
+                        select: { role: true, mustChangePassword: true, lastActive: true }
                     });
 
                     if (user) {
                         session.user.role = user.role;
                         // @ts-ignore
                         session.user.mustChangePassword = user.mustChangePassword;
+
+                        // Update lastActive if it's been more than 1 minute
+                        const now = new Date();
+                        const lastActive = user.lastActive ? new Date(user.lastActive) : new Date(0);
+                        if (now.getTime() - lastActive.getTime() > 60 * 1000) {
+                            await prisma.user.update({
+                                where: { id: token.id as string },
+                                data: { lastActive: now },
+                            }).catch((err) => {
+                                console.error("Failed to update lastActive:", err);
+                            });
+                        }
                     }
                 } catch (error) {
                     // Log error but keep session alive with token data

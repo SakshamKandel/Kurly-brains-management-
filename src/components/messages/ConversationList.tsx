@@ -108,7 +108,7 @@ export default function ConversationList({
                         {/* Avatar */}
                         <div style={{ position: 'relative' }}>
                             <Avatar name={fullName} size="md" />
-                            {user.lastActive && new Date(user.lastActive).getTime() > Date.now() - 5 * 60 * 1000 && (
+                            {user.lastActive && new Date(user.lastActive).getTime() > Date.now() - 60 * 1000 && (
                                 <div style={{
                                     position: 'absolute',
                                     bottom: -2,
