@@ -4,6 +4,9 @@ import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
 
+
+type UserRole = "ADMIN" | "STAFF" | "SUPER_ADMIN" | "MANAGER";
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
     ...authConfig,
     providers: [
@@ -53,7 +56,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             if (session.user && token.id) {
                 // Ensure basics are always set from token first (reliable fallback)
                 session.user.id = token.id as string;
-                session.user.role = (token.role as string) || "STAFF";
+                session.user.role = (token.role as UserRole) || "STAFF";
                 // @ts-ignore
                 session.user.mustChangePassword = !!token.mustChangePassword;
 
