@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Mail, Phone, MapPin, Search, Building2, User2, Filter } from "lucide-react";
+import { Mail, Phone, MapPin, Search, Building2, User2, Filter, Clock } from "lucide-react";
 import PageContainer from "@/components/layout/PageContainer";
 import Breadcrumb from "@/components/layout/Breadcrumb";
 import Avatar from "@/components/ui/Avatar";
@@ -14,11 +14,12 @@ interface User {
   firstName: string;
   lastName: string;
   email: string;
-  role: "ADMIN" | "STAFF";
+  role: "ADMIN" | "STAFF" | "SUPER_ADMIN";
   department?: string;
   position?: string;
   phone?: string;
   location?: string;
+  lastActive?: string | null;
 }
 
 export default function DirectoryPage() {
@@ -57,6 +58,29 @@ export default function DirectoryPage() {
     const matchesDept = !selectedDepartment || u.department === selectedDepartment;
     return matchesSearch && matchesDept;
   });
+
+  const formatLastActive = (dateString?: string | null) => {
+    if (!dateString) return "Offline";
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+    if (diffInSeconds < 60) return "Active now";
+    if (diffInSeconds < 3600) return `Active ${Math.floor(diffInSeconds / 60)}m ago`;
+    if (diffInSeconds < 86400) return `Active ${Math.floor(diffInSeconds / 3600)}h ago`;
+    if (diffInSeconds < 604800) return `Active ${Math.floor(diffInSeconds / 86400)}d ago`;
+
+    return date.toLocaleDateString();
+  };
+
+  const isOnline = (dateString?: string | null) => {
+    if (!dateString) return false;
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInMinutes = (now.getTime() - date.getTime()) / 1000 / 60;
+    return diffInMinutes < 5; // Consider online if active in last 5 minutes
+  };
+
 
   return (
     <PageContainer title="Team Directory" icon="👥">
@@ -168,7 +192,21 @@ export default function DirectoryPage() {
             >
               {/* Profile Header */}
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-                <Avatar name={`${user.firstName} ${user.lastName}`} size="lg" />
+                <div style={{ position: 'relative' }}>
+                  <Avatar name={`${user.firstName} ${user.lastName}`} size="lg" />
+                  {isOnline(user.lastActive) && (
+                    <div style={{
+                      position: 'absolute',
+                      bottom: 0,
+                      right: 0,
+                      width: '10px',
+                      height: '10px',
+                      borderRadius: '50%',
+                      backgroundColor: '#22c55e',
+                      border: '2px solid var(--notion-bg-secondary)'
+                    }} />
+                  )}
+                </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{
                     display: 'flex',
@@ -184,7 +222,7 @@ export default function DirectoryPage() {
                     }}>
                       {user.firstName} {user.lastName}
                     </h3>
-                    {user.role === 'ADMIN' && (
+                    {(user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') && (
                       <Badge variant="purple" size="sm">Admin</Badge>
                     )}
                   </div>
@@ -207,6 +245,19 @@ export default function DirectoryPage() {
 
               {/* Contact Info */}
               <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  fontSize: '13px',
+                  color: 'var(--notion-text-secondary)'
+                }}>
+                  <Clock size={14} style={{ flexShrink: 0, color: 'var(--notion-text-muted)' }} />
+                  <span style={{ color: isOnline(user.lastActive) ? '#22c55e' : 'inherit' }}>
+                    {formatLastActive(user.lastActive)}
+                  </span>
+                </div>
+
                 <div style={{
                   display: 'flex',
                   alignItems: 'center',
