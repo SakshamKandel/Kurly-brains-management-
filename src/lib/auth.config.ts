@@ -1,5 +1,8 @@
 import type { NextAuthConfig } from "next-auth";
 
+
+type UserRole = "ADMIN" | "STAFF" | "SUPER_ADMIN" | "MANAGER";
+
 export const authConfig = {
     pages: {
         signIn: "/login",
@@ -19,7 +22,7 @@ export const authConfig = {
         },
         async session({ session, token }) {
             if (session.user) {
-                session.user.role = (token.role as string) || "STAFF";
+                session.user.role = (token.role as UserRole) || "STAFF";
                 session.user.id = token.id as string;
                 // @ts-ignore
                 session.user.mustChangePassword = !!token.mustChangePassword;
