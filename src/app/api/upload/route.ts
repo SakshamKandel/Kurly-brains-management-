@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { writeFile, mkdir } from "fs/promises";
-import { join } from "path";
-import { existsSync } from "fs";
+import { uploadToR2 } from "@/lib/storage";
 
 // Allowed file types
 const ALLOWED_TYPES = [
@@ -48,32 +46,32 @@ export async function POST(request: Request) {
             );
         }
 
-        // Create uploads directory if it doesn't exist
-        const uploadsDir = join(process.cwd(), "public", "uploads");
-        if (!existsSync(uploadsDir)) {
-            await mkdir(uploadsDir, { recursive: true });
-        }
-
-        // Generate unique filename
-        const timestamp = Date.now();
-        const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
-        const filename = `${timestamp}-${sanitizedName}`;
-        const filepath = join(uploadsDir, filename);
-
-        // Convert file to buffer and write
+        // Convert file to buffer
         const bytes = await file.arrayBuffer();
         const buffer = Buffer.from(bytes);
-        await writeFile(filepath, buffer);
 
-        // Return public URL
-        const url = `/uploads/${filename}`;
+        // Upload to R2
+        try {
+            const url = await uploadToR2(buffer, file.name, file.type);
 
-        return NextResponse.json({
-            url,
-            filename: file.name,
-            type: file.type,
-            size: file.size,
-        });
+            return NextResponse.json({
+                url,
+                filename: file.name,
+                type: file.type,
+                size: file.size,
+            });
+        } catch (uploadError) {
+            console.error("R2 Upload Error:", uploadError);
+            // Check if it's a configuration error
+            if (!process.env.R2_ACCOUNT_ID || !process.env.R2_BUCKET_NAME) {
+                return NextResponse.json(
+                    { error: "Storage configuration missing. Please check server logs." },
+                    { status: 503 }
+                );
+            }
+            throw uploadError;
+        }
+
     } catch (error) {
         console.error("Error uploading file:", error);
         return NextResponse.json({ error: "Failed to upload file" }, { status: 500 });
