@@ -152,6 +152,17 @@ export async function DELETE(
             return NextResponse.json({ error: "User not found" }, { status: 404 });
         }
 
+        // Enforce role-based deletion rules
+        if (session.user.role === "ADMIN") {
+            // Admins can only delete STAFF
+            if (existingUser.role !== "STAFF") {
+                return NextResponse.json({ error: "Admins can only delete Staff members" }, { status: 403 });
+            }
+        } else if (session.user.role === "SUPER_ADMIN") {
+            // Super Admins can delete anyone (except themselves, which is handled above)
+            // No additional check needed
+        }
+
         // Delete the user
         await prisma.user.delete({
             where: { id },

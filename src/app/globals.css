@@ -497,6 +497,11 @@ body {
   background-color: var(--notion-bg-tertiary);
 }
 
+.hover-bg-red:hover {
+  background-color: rgba(235, 87, 87, 0.1) !important;
+  opacity: 1 !important;
+}
+
 .hover-reveal {
   opacity: 0;
   transition: opacity 0.15s ease;

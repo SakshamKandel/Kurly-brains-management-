@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Mail, Phone, MapPin, Search, Building2, User2, Filter, Clock } from "lucide-react";
+import { Mail, Phone, MapPin, Search, Building2, User2, Filter, Clock, Trash2 } from "lucide-react";
+import { useSession } from "next-auth/react";
 import PageContainer from "@/components/layout/PageContainer";
 import Breadcrumb from "@/components/layout/Breadcrumb";
 import Avatar from "@/components/ui/Avatar";
@@ -24,8 +25,10 @@ interface User {
 }
 
 export default function DirectoryPage() {
+  const { data: session } = useSession();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDepartment, setSelectedDepartment] = useState<string | null>(null);
 
@@ -90,6 +93,42 @@ export default function DirectoryPage() {
     const now = new Date();
     const diffInSeconds = (now.getTime() - date.getTime()) / 1000;
     return diffInSeconds < 60; // Online if active in last 60 seconds
+  };
+
+  const canDeleteUser = (targetUser: User) => {
+    if (!session?.user) return false;
+    if (session.user.id === targetUser.id) return false;
+
+    const currentUserRole = session.user.role;
+    if (currentUserRole === "SUPER_ADMIN") return true;
+    if (currentUserRole === "ADMIN" && targetUser.role === "STAFF") return true;
+
+    return false;
+  };
+
+  const handleDeleteUser = async (user: User) => {
+    if (!confirm(`Are you sure you want to delete ${user.firstName} ${user.lastName}? This action cannot be undone.`)) {
+      return;
+    }
+
+    setIsDeleting(user.id);
+    try {
+      const res = await fetch(`/api/users/${user.id}`, {
+        method: "DELETE",
+      });
+
+      if (res.ok) {
+        setUsers(users.filter(u => u.id !== user.id));
+      } else {
+        const data = await res.json();
+        alert(data.error || "Failed to delete user");
+      }
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      alert("An error occurred while deleting the user");
+    } finally {
+      setIsDeleting(null);
+    }
   };
 
 
@@ -245,6 +284,34 @@ export default function DirectoryPage() {
                     {user.position || "Team Member"}
                   </p>
                 </div>
+
+                {/* Delete Button */}
+                {canDeleteUser(user) && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteUser(user);
+                    }}
+                    disabled={isDeleting === user.id}
+                    title="Delete User"
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      padding: '8px',
+                      borderRadius: '6px',
+                      cursor: isDeleting === user.id ? 'not-allowed' : 'pointer',
+                      color: 'var(--notion-red)',
+                      opacity: isDeleting === user.id ? 0.5 : 0.6,
+                      transition: 'all 0.15s ease',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                    className="hover-bg-red"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                )}
               </div>
 
               {/* Department Tag */}
