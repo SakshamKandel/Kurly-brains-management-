@@ -81,15 +81,11 @@ export async function PUT(request: Request) {
         const body = await request.json();
         const {
             firstName, lastName, phone, department, position, avatar,
-            currentPassword, newPassword
+            currentPassword, newPassword, isForceChange
         } = body;
 
         // Password Update Logic
         if (newPassword) {
-            if (!currentPassword) {
-                return NextResponse.json({ error: "Current password required" }, { status: 400 });
-            }
-
             const user = await prisma.user.findUnique({
                 where: { id: session.user.id },
             });
@@ -98,9 +94,21 @@ export async function PUT(request: Request) {
                 return NextResponse.json({ error: "User not found" }, { status: 404 });
             }
 
-            const isValid = await bcrypt.compare(currentPassword, user.password);
-            if (!isValid) {
-                return NextResponse.json({ error: "Incorrect current password" }, { status: 400 });
+            // Allow password change without current password ONLY if:
+            // 1. User has mustChangePassword flag set (new user first login)
+            // 2. OR isForceChange flag is sent from ForcePasswordChangeModal
+            const isFirstTimeSetup = user.mustChangePassword || isForceChange;
+
+            if (!isFirstTimeSetup) {
+                // Regular password change - requires current password
+                if (!currentPassword) {
+                    return NextResponse.json({ error: "Current password required" }, { status: 400 });
+                }
+
+                const isValid = await bcrypt.compare(currentPassword, user.password);
+                if (!isValid) {
+                    return NextResponse.json({ error: "Incorrect current password" }, { status: 400 });
+                }
             }
 
             const hashedPassword = await bcrypt.hash(newPassword, 12);
