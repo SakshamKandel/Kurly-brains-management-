@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from "lucide-react";
 
 export default function CalendarWidget() {
     const [date, setDate] = useState(new Date());
@@ -21,65 +21,62 @@ export default function CalendarWidget() {
     };
 
     return (
-        <div style={{
-            background: "var(--notion-bg-secondary)",
-            border: "1px solid var(--notion-border)",
-            borderRadius: "8px",
-            padding: "16px",
-            height: "100%",
-            display: "flex",
-            flexDirection: "column",
-            gap: "12px"
-        }}>
+        <div className="h-full w-full flex flex-col p-6">
             {/* Header */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <span style={{ fontSize: "14px", fontWeight: 600, color: "var(--notion-text)" }}>
-                    {monthNames[date.getMonth()]} {date.getFullYear()}
-                </span>
-                <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                    <button onClick={prevMonth} style={{ background: "transparent", border: "none", color: "var(--notion-text-muted)", cursor: "pointer", padding: "2px" }} className="hover-bg">
+            <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-2">
+                    <CalendarIcon size={16} className="text-[var(--brand-cyan)]" />
+                    <span className="text-[12px] uppercase tracking-[0.2em] font-bold text-[var(--notion-text-secondary)]">
+                        {monthNames[date.getMonth()]} {date.getFullYear()}
+                    </span>
+                </div>
+
+                <div className="flex items-center gap-1">
+                    <button onClick={prevMonth} className="p-1.5 rounded-md text-[var(--notion-text-muted)] hover:text-[var(--brand-cyan)] hover:bg-[var(--notion-bg-tertiary)] transition-colors">
                         <ChevronLeft size={16} />
                     </button>
-                    <button onClick={today} style={{ fontSize: "11px", fontWeight: 500, background: "transparent", border: "none", color: "var(--notion-text-muted)", cursor: "pointer", padding: "2px 6px" }} className="hover-bg">
+                    <button onClick={today} className="px-2 py-1 text-[9px] font-bold uppercase tracking-widest text-[var(--notion-text-muted)] hover:text-[var(--notion-text)] transition-colors">
                         Today
                     </button>
-                    <button onClick={nextMonth} style={{ background: "transparent", border: "none", color: "var(--notion-text-muted)", cursor: "pointer", padding: "2px" }} className="hover-bg">
+                    <button onClick={nextMonth} className="p-1.5 rounded-md text-[var(--notion-text-muted)] hover:text-[var(--brand-cyan)] hover:bg-[var(--notion-bg-tertiary)] transition-colors">
                         <ChevronRight size={16} />
                     </button>
                 </div>
             </div>
 
             {/* Calendar Grid */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "4px", fontSize: "12px", flex: 1 }}>
+            <div
+                className="gap-y-2 flex-1 items-start w-full overflow-hidden"
+                style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)' }}
+            >
                 {/* Weekdays */}
                 {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
-                    <div key={`day-${i}`} style={{ color: "var(--notion-text-muted)", textAlign: "center", paddingBottom: "4px", fontSize: "10px", fontWeight: 600 }}>{d}</div>
+                    <div key={`day-${i}`} className="text-center text-[10px] uppercase tracking-widest font-bold text-[var(--notion-text-muted)] mb-2">
+                        {d}
+                    </div>
                 ))}
 
                 {/* Empty Days */}
                 {Array.from({ length: firstDay }).map((_, i) => (
-                    <div key={`empty-${i}`} />
+                    <div key={`empty-${i}`} className="p-1" />
                 ))}
 
                 {/* Days */}
                 {Array.from({ length: daysInMonth }).map((_, i) => {
                     const d = i + 1;
+                    const active = isToday(d);
                     return (
-                        <div
-                            key={d}
-                            style={{
-                                textAlign: "center",
-                                padding: "6px 0",
-                                background: isToday(d) ? "var(--notion-red)" : "transparent",
-                                color: isToday(d) ? "white" : "var(--notion-text)",
-                                borderRadius: "4px",
-                                cursor: "pointer",
-                                fontSize: "12px",
-                                fontWeight: isToday(d) ? 600 : 400
-                            }}
-                            className={!isToday(d) ? "hover-bg" : ""}
-                        >
-                            {d}
+                        <div key={d} className="flex justify-center p-1">
+                            <button
+                                className={`
+                                    flex items-center justify-center w-8 h-8 rounded-md text-xs transition-all duration-300
+                                    ${active
+                                        ? 'bg-[var(--brand-cyan)] text-[var(--notion-bg)] font-medium shadow-[0_0_15px_rgba(56,189,248,0.2)]'
+                                        : 'text-[var(--notion-text)] font-light hover:bg-[var(--notion-bg-tertiary)] hover:text-[var(--brand-cyan)]'}
+                                `}
+                            >
+                                {d}
+                            </button>
                         </div>
                     );
                 })}

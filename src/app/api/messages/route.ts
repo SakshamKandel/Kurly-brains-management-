@@ -13,7 +13,6 @@ export async function GET(request: Request) {
         const currentUserId = session.user.id;
         const { searchParams } = new URL(request.url);
         const otherUserId = searchParams.get("userId");
-        console.log('[Messages API] GET currentUserId:', currentUserId, 'otherUserId:', otherUserId);
 
         if (!otherUserId) {
             return NextResponse.json({ error: "User ID required" }, { status: 400 });
@@ -31,11 +30,9 @@ export async function GET(request: Request) {
         });
 
         if (!existingConversation) {
-            console.log('[Messages API] No conversation found between users');
-            return NextResponse.json([]);
+                return NextResponse.json([]);
         }
 
-        console.log('[Messages API] Found conversation:', existingConversation.id);
 
         // Get messages from that conversation
         const messages = await prisma.message.findMany({
@@ -55,7 +52,6 @@ export async function GET(request: Request) {
             orderBy: { createdAt: "asc" },
         });
 
-        console.log('[Messages API] Found', messages.length, 'messages');
         return NextResponse.json(messages);
     } catch (error) {
         console.error("Error fetching messages:", error);

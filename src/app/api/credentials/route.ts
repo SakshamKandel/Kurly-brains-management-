@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { encrypt, decrypt } from "@/lib/crypto";
 
 // GET - Fetch credentials (admin sees all, staff sees assigned + public)
 export async function GET(request: NextRequest) {
@@ -57,7 +58,14 @@ export async function GET(request: NextRequest) {
             });
         }
 
-        return NextResponse.json(credentials);
+        // Decrypt sensitive fields before returning
+        const decryptedCredentials = credentials.map((cred: any) => ({
+            ...cred,
+            password: decrypt(cred.password),
+            apiKey: cred.apiKey ? decrypt(cred.apiKey) : cred.apiKey,
+        }));
+
+        return NextResponse.json(decryptedCredentials);
     } catch (error) {
         console.error("Error fetching credentials:", error);
         return NextResponse.json({ error: "Failed to fetch credentials", details: String(error) }, { status: 500 });
@@ -78,10 +86,9 @@ export async function POST(request: NextRequest) {
             select: { role: true },
         });
 
-        // Allow any authenticated user to create credentials (as requested)
-        // if (user?.role !== "ADMIN" && user?.role !== "MANAGER" && user?.role !== "SUPER_ADMIN") {
-        //    return NextResponse.json({ error: "Only admins/managers can create credentials" }, { status: 403 });
-        // }
+        if (user?.role !== "ADMIN" && user?.role !== "MANAGER" && user?.role !== "SUPER_ADMIN") {
+            return NextResponse.json({ error: "Only admins/managers can create credentials" }, { status: 403 });
+        }
 
         const body = await request.json();
         const { clientName, serviceName, username, password, apiKey, url, notes, assignedToId, visibility } = body;
@@ -102,8 +109,8 @@ export async function POST(request: NextRequest) {
                 clientName,
                 serviceName,
                 username,
-                password, // Note: In production, encrypt this before storing
-                apiKey,
+                password: encrypt(password),
+                apiKey: apiKey ? encrypt(apiKey) : apiKey,
                 url,
                 notes,
                 createdById: session.user.id,

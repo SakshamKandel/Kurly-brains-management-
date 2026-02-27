@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 // --- Types ---
 
@@ -40,12 +41,7 @@ interface FullUserData {
         title: string;
         icon: string | null;
     }>;
-    credentials: Array<{
-        clientName: string;
-        serviceName: string;
-        username: string | null;
-        password: string;
-    }>;
+    credentialCount: number;
 }
 
 // --- Data Fetching ---
@@ -136,7 +132,7 @@ async function getFullUserData(userId: string): Promise<FullUserData | null> {
             attendance: user.attendance,
             unreadMessages: user.messagesReceived.length,
             pages: user.customPages,
-            credentials: user.assignedCredentials,
+            credentialCount: user.assignedCredentials.length,
         };
     } catch (error) {
         console.error("Database error:", error);
@@ -193,11 +189,8 @@ function buildContextString(data: FullUserData): string {
         lines.push(`\nPAGES: ${data.pages.length} custom pages`);
     }
 
-    if (data.credentials.length > 0) {
-        lines.push(`\nSHARED CREDENTIALS (${data.credentials.length}):`);
-        data.credentials.forEach(c => {
-            lines.push(`  * ${c.clientName} - ${c.serviceName}: user="${c.username || 'N/A'}", pass="${c.password}"`);
-        });
+    if (data.credentialCount > 0) {
+        lines.push(`\nSHARED CREDENTIALS: ${data.credentialCount} credential(s) assigned (details hidden for security)`);
     }
 
     return lines.join("\n");
@@ -264,6 +257,11 @@ async function handleAction(userId: string, actionType: string, actionData: any)
         }
 
         if (actionType === "create_invoice") {
+            // RBAC: Only ADMIN/MANAGER/SUPER_ADMIN can create invoices
+            const invoiceUser = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+            if (!invoiceUser || !["ADMIN", "MANAGER", "SUPER_ADMIN"].includes(invoiceUser.role)) {
+                return " Action denied: Only admins/managers can create invoices.";
+            }
             const { clientName, amount, description } = actionData;
 
             // 1. Find or Create Client
@@ -275,7 +273,6 @@ async function handleAction(userId: string, actionType: string, actionData: any)
 
             // Auto-create if not found
             if (!client) {
-                console.log(`[Action Mode] Client '${clientName}' not found. Creating new client...`);
                 client = await prisma.client.create({
                     data: {
                         name: clientName,
@@ -286,10 +283,11 @@ async function handleAction(userId: string, actionType: string, actionData: any)
                 });
             }
 
-            // 2. Generate Invoice Number
-            const count = await prisma.invoice.count();
+            // 2. Generate unique Invoice Number
             const year = new Date().getFullYear();
-            const invoiceNumber = `INV-${year}-${String(count + 1).padStart(4, '0')}`;
+            const rand = Math.random().toString(36).substring(2, 6).toUpperCase();
+            const ts = Date.now().toString().slice(-6);
+            const invoiceNumber = `INV-${year}-${ts}-${rand}`;
 
             // 3. Create Invoice
             const invoice = await prisma.invoice.create({

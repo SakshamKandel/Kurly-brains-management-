@@ -65,10 +65,15 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                     // This prevents stale session data when roles/flags are changed by admins
                     const user = await prisma.user.findUnique({
                         where: { id: token.id as string },
-                        select: { role: true, mustChangePassword: true, lastActive: true, avatar: true }
+                        select: { role: true, mustChangePassword: true, lastActive: true, avatar: true, status: true }
                     });
 
                     if (user) {
+                        // Block suspended/inactive users
+                        if (user.status === "SUSPENDED" || user.status === "INACTIVE") {
+                            session.user.id = "";
+                            return session;
+                        }
                         session.user.role = user.role;
                         // @ts-ignore
                         session.user.mustChangePassword = user.mustChangePassword;

@@ -1,9 +1,23 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
+import { validatePassword } from "@/lib/validation";
+import { createAuditLog } from "@/lib/audit";
 
 export async function POST(req: Request) {
     try {
+        const session = await auth();
+        if (!session?.user?.id) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
+        // Only ADMIN and SUPER_ADMIN can register new users
+        const isAdmin = ["ADMIN", "SUPER_ADMIN"].includes(session.user.role);
+        if (!isAdmin) {
+            return NextResponse.json({ error: "Only admins can create new users" }, { status: 403 });
+        }
+
         const { firstName, lastName, email, password } = await req.json();
 
         if (!firstName || !lastName || !email || !password) {
@@ -25,6 +39,12 @@ export async function POST(req: Request) {
             );
         }
 
+        // Validate password complexity
+        const pwCheck = validatePassword(password);
+        if (!pwCheck.valid) {
+            return NextResponse.json({ error: pwCheck.error }, { status: 400 });
+        }
+
         // Hash password
         const hashedPassword = await bcrypt.hash(password, 12);
 
@@ -38,6 +58,15 @@ export async function POST(req: Request) {
                 role: "STAFF",
                 status: "ACTIVE",
             },
+        });
+
+        // Audit log: User creation
+        await createAuditLog({
+            userId: session.user.id,
+            action: "CREATE",
+            resource: "USER",
+            resourceId: user.id,
+            details: { email: user.email, createdBy: session.user.id }
         });
 
         return NextResponse.json(

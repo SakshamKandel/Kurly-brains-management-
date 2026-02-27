@@ -76,12 +76,15 @@ interface SidebarContextType {
 
 const defaultNavOrder = [
     "dashboard",
+    "projects",
     "tasks",
     "messages",
-    "attendance",
+    "meetings",
+    "calendar",
     "leaves",
-    "users",
-    "announcements",
+    "attendance",
+    "directory",
+    "credentials",
 ];
 
 const defaultContext: SidebarContextType = {

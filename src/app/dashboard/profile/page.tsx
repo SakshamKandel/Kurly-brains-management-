@@ -186,7 +186,7 @@ export default function ProfilePage() {
     const getRoleColor = (role: string) => {
         switch (role) {
             case "SUPER_ADMIN": return "var(--notion-red)";
-            case "ADMIN": return "var(--notion-orange)";
+            case "ADMIN": return "var(--notion-blue)";
             case "MANAGER": return "var(--notion-blue)";
             default: return "var(--notion-text-secondary)";
         }
@@ -617,7 +617,7 @@ export default function ProfilePage() {
                 .stat-icon.green { color: var(--notion-green); }
                 .stat-icon.purple { color: var(--notion-purple); }
                 .stat-icon.blue { color: var(--notion-blue); }
-                .stat-icon.orange { color: var(--notion-orange); }
+                .stat-icon.blue { color: var(--notion-blue); }
 
                 .stat-content {
                     display: flex;

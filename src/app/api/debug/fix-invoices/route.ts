@@ -1,8 +1,16 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
 
 export async function GET() {
     try {
+        const session = await auth();
+        if (!session?.user?.id) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+        if (session.user.role !== "SUPER_ADMIN") {
+            return NextResponse.json({ error: "Forbidden: Super Admin only" }, { status: 403 });
+        }
         // Use raw SQL to bypass Prisma's enum validation checks for the "InvoiceStatus" type
         // This forces any status that is NOT 'DRAFT' or 'COMPLETED' to be 'DRAFT'
 

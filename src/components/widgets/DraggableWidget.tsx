@@ -24,10 +24,11 @@ export default function DraggableWidget({ id, children }: DraggableWidgetProps) 
 
     const style = {
         transform: CSS.Transform.toString(transform),
-        transition,
-        opacity: isDragging ? 0.6 : 1,
+        transition: transition || "transform 220ms cubic-bezier(0.2, 0, 0, 1)",
+        opacity: isDragging ? 0 : 1,
         position: "relative" as const,
         height: "100%",
+        zIndex: isDragging ? 0 : 1,
     };
 
     return (
@@ -51,8 +52,8 @@ export default function DraggableWidget({ id, children }: DraggableWidgetProps) 
                     borderRadius: "4px",
                     backgroundColor: isHovered ? "var(--notion-bg-tertiary)" : "transparent",
                     cursor: isDragging ? "grabbing" : "grab",
-                    opacity: isHovered ? 1 : 0.3,
-                    transition: "all 0.15s ease",
+                    opacity: isHovered ? 1 : 0.2,
+                    transition: "opacity 0.15s ease, background-color 0.15s ease",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -69,11 +70,8 @@ export default function DraggableWidget({ id, children }: DraggableWidgetProps) 
             <div
                 style={{
                     height: "100%",
-                    borderRadius: "8px",
-                    outline: isDragging ? "2px solid var(--notion-blue)" : "none",
-                    outlineOffset: "2px",
-                    transform: isDragging ? "scale(1.01)" : "scale(1)",
-                    transition: "outline 0.2s, transform 0.2s",
+                    borderRadius: "var(--radius-md)",
+                    transition: "outline 0.15s ease",
                 }}
             >
                 {children}

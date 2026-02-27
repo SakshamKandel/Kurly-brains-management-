@@ -86,7 +86,7 @@ export default function TimeGreeting() {
                 justifyContent: "center",
                 flexShrink: 0,
             }}>
-                <Icon size={18} style={{ color: "var(--notion-orange)" }} />
+                <Icon size={18} style={{ color: "var(--notion-blue)" }} />
             </div>
 
             {/* Text */}

@@ -44,6 +44,41 @@ model User {
   // Invoicing
   createdClients       Client[]
   createdInvoices      Invoice[]
+  
+  // Payroll
+  bankDetails          BankDetails?
+  salaryInfo           SalaryInfo?
+  paymentsSent         Payment[]    @relation("PaymentPayer")
+  paymentsReceived     Payment[]    @relation("PaymentPayee")
+  customBanksAdded     CustomBank[] @relation("CustomBankAddedBy")
+  
+  // Security
+  auditLogs            AuditLog[]
+  
+  // Projects & Meetings
+  createdProjects      Project[]         @relation("ProjectCreator")
+  projectMemberships   ProjectMember[]
+  createdMeetings      Meeting[]         @relation("MeetingCreator")
+  meetingAttendances   MeetingAttendee[]
+  taskComments         TaskComment[]
+  conversationMembers  ConversationMember[]
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action      String   // CREATE, UPDATE, DELETE, VIEW, LOGIN, etc.
+  resource    String   // Payment, BankDetails, User, etc.
+  resourceId  String?
+  details     Json?    // Stores changed fields, before/after values
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([resource])
+  @@index([action])
 }
 
 model ClientCredential {
@@ -60,8 +95,8 @@ model ClientCredential {
   createdAt    DateTime             @default(now())
   updatedAt    DateTime             @updatedAt
   visibility   CredentialVisibility @default(PRIVATE)
-  assignedTo   User                 @relation("CredentialAssignee", fields: [assignedToId], references: [id])
-  createdBy    User                 @relation("CredentialCreator", fields: [createdById], references: [id])
+  assignedTo   User                 @relation("CredentialAssignee", fields: [assignedToId], references: [id], onDelete: Cascade)
+  createdBy    User                 @relation("CredentialCreator", fields: [createdById], references: [id], onDelete: Cascade)
 }
 
 model UserPreferences {
@@ -72,6 +107,7 @@ model UserPreferences {
   groups         Json?
   workModes      Json?
   activeWorkMode String?
+  widgetOrder    Json?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -84,12 +120,15 @@ model Task {
   priority    Priority      @default(MEDIUM)
   status      TaskStatus    @default(TODO)
   dueDate     DateTime?
+  attachments String[]      @default([])
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
   creatorId   String
   assigneeId  String?
+  projectId   String?
   assignee    User?         @relation("TaskAssignee", fields: [assigneeId], references: [id])
   creator     User          @relation("TaskCreator", fields: [creatorId], references: [id])
+  project     Project?      @relation(fields: [projectId], references: [id], onDelete: SetNull)
   comments    TaskComment[]
 }
 
@@ -100,6 +139,7 @@ model TaskComment {
   taskId    String
   userId    String
   task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id])
 }
 
 model Conversation {
@@ -122,6 +162,7 @@ model ConversationMember {
   userId         String
   joinedAt       DateTime     @default(now())
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id])
 
   @@unique([conversationId, userId])
 }
@@ -275,6 +316,7 @@ model Client {
   creatorId String?
   creator   User?    @relation(fields: [creatorId], references: [id])
   invoices  Invoice[]
+  projects  Project[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -328,3 +370,207 @@ enum InvoiceStatus {
   DRAFT
   COMPLETED
 }
+
+// --- PAYROLL MODELS ---
+
+model BankDetails {
+  id              String      @id @default(cuid())
+  userId          String      @unique
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  bankName        String
+  bankCode        String?     // SWIFT/BIC code
+  branchName      String?
+  branchCode      String?     // IFSC/Routing number
+  accountNumber   String
+  accountHolder   String
+  accountType     AccountType @default(SAVINGS)
+  country         String      @default("NP")
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+}
+
+model SalaryInfo {
+  id              String        @id @default(cuid())
+  userId          String        @unique
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  baseSalary      Float
+  currency        String        @default("NPR")
+  payFrequency    PayFrequency  @default(MONTHLY)
+  paymentMethod   PaymentMethod @default(BANK_TRANSFER)
+  type            SalaryType    @default(FIXED)
+  
+  taxDeduction    Float         @default(0)
+  otherDeductions Float         @default(0)
+  deductionNotes  String?
+  
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
+
+enum SalaryType {
+  FIXED
+  PROJECT
+  HOURLY
+}
+
+model Payment {
+  id              String        @id @default(cuid())
+  payerId         String
+  payer           User          @relation("PaymentPayer", fields: [payerId], references: [id])
+  payeeId         String
+  payee           User          @relation("PaymentPayee", fields: [payeeId], references: [id])
+  
+  amount          Float
+  currency        String        @default("NPR")
+  paymentDate     DateTime
+  payPeriodStart  DateTime
+  payPeriodEnd    DateTime
+  
+  baseSalary      Float
+  deductions      Float
+  bonuses         Float         @default(0)
+  netPay          Float
+  
+  status          PaymentStatus @default(PENDING)
+  notes           String?
+  
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
+
+enum AccountType {
+  SAVINGS
+  CURRENT
+  SALARY
+}
+
+enum PayFrequency {
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+  QUARTERLY
+  PER_PROJECT
+  ONE_TIME
+}
+
+enum PaymentMethod {
+  BANK_TRANSFER
+  CASH
+  CHECK
+  UPI
+  WALLET
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+// --- CUSTOM BANK DATABASE (User-added banks) ---
+
+model CustomBank {
+  id            String   @id @default(cuid())
+  country       String   // Country code (e.g., "NP", "PK", "IN")
+  name          String
+  code          String?  // SWIFT/BIC code
+  isDigital     Boolean  @default(false)
+  
+  addedById     String
+  addedBy       User     @relation("CustomBankAddedBy", fields: [addedById], references: [id])
+  
+  isApproved    Boolean  @default(true) // Admin can approve/reject
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@unique([country, name]) // Prevent duplicates
+  @@index([country])
+}
+
+// --- PROJECT WORKSPACES ---
+
+model Project {
+  id          String          @id @default(cuid())
+  name        String
+  description String?
+  color       String          @default("#3b82f6")
+  status      ProjectStatus   @default(ACTIVE)
+  clientId    String?
+  client      Client?         @relation(fields: [clientId], references: [id])
+  createdById String
+  createdBy   User            @relation("ProjectCreator", fields: [createdById], references: [id])
+  tasks       Task[]
+  members     ProjectMember[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+}
+
+model ProjectMember {
+  id        String      @id @default(cuid())
+  projectId String
+  project   Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User        @relation(fields: [userId], references: [id])
+  role      ProjectRole @default(MEMBER)
+  joinedAt  DateTime    @default(now())
+
+  @@unique([projectId, userId])
+}
+
+enum ProjectStatus {
+  ACTIVE
+  COMPLETED
+  ON_HOLD
+  ARCHIVED
+}
+
+enum ProjectRole {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+// --- MEETING SCHEDULER ---
+
+model Meeting {
+  id          String            @id @default(cuid())
+  title       String
+  description String?
+  startTime   DateTime
+  endTime     DateTime
+  location    String?
+  isVirtual   Boolean           @default(false)
+  meetLink    String?
+  createdById String
+  createdBy   User              @relation("MeetingCreator", fields: [createdById], references: [id])
+  attendees   MeetingAttendee[]
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+}
+
+model MeetingAttendee {
+  id        String              @id @default(cuid())
+  meetingId String
+  meeting   Meeting             @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User                @relation(fields: [userId], references: [id])
+  status    MeetingResponseStatus @default(PENDING)
+  respondedAt DateTime?
+
+  @@unique([meetingId, userId])
+}
+
+enum MeetingResponseStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  TENTATIVE
+}
+

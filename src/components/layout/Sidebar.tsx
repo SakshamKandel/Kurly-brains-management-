@@ -19,6 +19,9 @@ import {
   Search,
   Key,
   FileText,
+  Wallet,
+  FolderKanban,
+  CalendarClock,
 } from "lucide-react";
 import { preload } from "swr";
 import Avatar from "@/components/ui/Avatar";
@@ -30,8 +33,10 @@ import CustomPagesSidebar from "./CustomPagesSidebar";
 // Navigation Items
 const navItems = [
   { id: "dashboard", href: "/dashboard", label: "Dashboard", Icon: LayoutDashboard },
+  { id: "projects", href: "/dashboard/projects", label: "Projects", Icon: FolderKanban },
   { id: "tasks", href: "/dashboard/tasks", label: "Tasks", Icon: CheckSquare },
   { id: "messages", href: "/dashboard/messages", label: "Messages", Icon: MessageSquare },
+  { id: "meetings", href: "/dashboard/meetings", label: "Meetings", Icon: CalendarClock },
   { id: "calendar", href: "/dashboard/calendar", label: "Work Calendar", Icon: CalendarDays },
   { id: "leaves", href: "/dashboard/leaves", label: "Leaves", Icon: Calendar },
   { id: "attendance", href: "/dashboard/attendance", label: "Attendance", Icon: Clock },
@@ -42,6 +47,7 @@ const navItems = [
 const adminItems = [
   { id: "admin", href: "/dashboard/admin", label: "Admin Panel", Icon: Shield },
   { id: "invoices", href: "/dashboard/invoices", label: "Invoices", Icon: FileText },
+  { id: "payees", href: "/dashboard/payees", label: "Payees", Icon: Wallet },
 ];
 
 export default function Sidebar() {
@@ -49,6 +55,11 @@ export default function Sidebar() {
   const prevPathRef = useRef(pathname);
   const { data: session } = useSession();
   const { isCollapsed, setIsCollapsed, notificationCounts, isMobileOpen, setIsMobileOpen } = useSidebar();
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   // Allow ADMIN, SUPER_ADMIN, and MANAGER to see the admin panel
   const isAdmin = ["ADMIN", "SUPER_ADMIN", "MANAGER"].includes(session?.user?.role || "");
@@ -117,14 +128,6 @@ export default function Sidebar() {
           overflow: 'hidden'
         }}
       >
-        {/* Toggle Button for Collapsed State - Moved outside overflow area via fixed positioning logic handled below if needed, but actually keeping inside and fixing overflow is risky. 
-            Better: Use the header toggle button OR place this absolute button properly. 
-            IF I move it OUTSIDE aside, it needs to be tracking the sidebar position. 
-            Simpler: Put it INSIDE the sidebar but visible. 
-            Actually, the design was 'left: 56px' which is clearly meant to be Floating outside.
-            So I will move the button OUTSIDE the aside.
-        */}
-
         {/* Workspace Header */}
         <div
           style={{
@@ -251,7 +254,7 @@ export default function Sidebar() {
           />
 
           {/* Admin Items */}
-          {isAdmin && (
+          {isMounted && isAdmin && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '24px' }}>
               {!isCompact && (
                 <div style={{
@@ -327,10 +330,10 @@ export default function Sidebar() {
                 overflow: 'hidden',
                 textOverflow: 'ellipsis'
               }}>
-                {session?.user?.name || "User"}
+                {isMounted ? (session?.user?.name || "User") : "User"}
               </div>
               <div style={{ fontSize: '11px', color: 'var(--notion-text-muted)' }}>
-                {session?.user?.role || "STAFF"}
+                {isMounted ? (session?.user?.role || "STAFF") : "STAFF"}
               </div>
             </div>
           )}
@@ -352,7 +355,6 @@ export default function Sidebar() {
               <LogOut size={16} />
             </button>
           )}
-
 
         </div>
       </aside>

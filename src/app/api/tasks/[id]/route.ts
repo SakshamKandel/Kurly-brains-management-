@@ -8,7 +8,7 @@ export async function GET(
 ) {
     try {
         const session = await auth();
-        if (!session) {
+        if (!session?.user?.id) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
@@ -42,7 +42,7 @@ export async function PUT(
 ) {
     try {
         const session = await auth();
-        if (!session) {
+        if (!session?.user?.id) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
@@ -78,7 +78,7 @@ export async function DELETE(
 ) {
     try {
         const session = await auth();
-        if (!session) {
+        if (!session?.user?.id) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
@@ -91,7 +91,7 @@ export async function DELETE(
             return NextResponse.json({ error: "Task not found" }, { status: 404 });
         }
 
-        if (task.creatorId !== session.user.id && session.user.role !== "ADMIN") {
+        if (task.creatorId !== session.user.id && !["ADMIN", "SUPER_ADMIN"].includes(session.user.role)) {
             return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 

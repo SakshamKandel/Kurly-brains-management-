@@ -45,7 +45,7 @@ export async function PUT(
 ) {
     try {
         const session = await auth();
-        if (!session?.user?.email) {
+        if (!session?.user?.id) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
@@ -73,6 +73,12 @@ export async function PUT(
 
         if (!existingInvoice) {
             return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
+        }
+
+        // Only the creator or ADMIN/SUPER_ADMIN can update
+        const isAdmin = ["ADMIN", "SUPER_ADMIN"].includes(session.user.role);
+        if (existingInvoice.creatorId !== session.user.id && !isAdmin) {
+            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
         // Handle Client Update (or create new if name changed significantly? For now update generic client if linked)
@@ -145,13 +151,21 @@ export async function DELETE(
 ) {
     try {
         const session = await auth();
-        if (!session?.user?.email) {
+        if (!session?.user?.id) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
         const { id } = await params;
 
-        // Optional: Check permissions (only creator or admin can delete?)
+        // Only the creator or ADMIN/SUPER_ADMIN can delete
+        const invoice = await prisma.invoice.findUnique({ where: { id }, select: { creatorId: true } });
+        if (!invoice) {
+            return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
+        }
+        const isAdmin = ["ADMIN", "SUPER_ADMIN"].includes(session.user.role);
+        if (invoice.creatorId !== session.user.id && !isAdmin) {
+            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        }
 
         await prisma.invoice.delete({
             where: { id }

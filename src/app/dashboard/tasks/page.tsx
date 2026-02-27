@@ -2,18 +2,22 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import useSWR from "swr";
+import useSWR, { useSWRConfig } from "swr";
+import { motion } from "framer-motion";
 import {
   Plus,
   Filter,
   CheckSquare,
+  CheckCircle2,
+  Clock,
   Zap,
   Search,
   Edit,
   Trash2,
   LayoutTemplate,
   List,
-  MoreHorizontal
+  MoreHorizontal,
+  ArrowRight,
 } from "lucide-react";
 import PageContainer from "@/components/layout/PageContainer";
 import Breadcrumb from "@/components/layout/Breadcrumb";
@@ -28,6 +32,7 @@ import Badge from "@/components/ui/Badge";
 import { TaskHoverPreview } from "@/components/ui/HoverPreview";
 import { useCelebration } from "@/components/ui/Celebration";
 import { useToast } from "@/components/ui/Toast";
+import TaskDetailPanel from "@/components/tasks/TaskDetailPanel";
 
 interface Task {
   id: string;
@@ -45,17 +50,62 @@ interface User {
   lastName: string;
 }
 
+/* ─── Priority color helper ─── */
+function priColor(p: string) {
+  switch (p) {
+    case "URGENT": return "var(--notion-red)";
+    case "HIGH": return "var(--brand-blue)";
+    case "MEDIUM": return "var(--notion-text-secondary)";
+    default: return "var(--notion-text-muted)";
+  }
+}
+
+/* ─── Status column accent ─── */
+function statusAccent(s: string) {
+  switch (s) {
+    case "TODO": return "var(--notion-text-muted)";
+    case "IN_PROGRESS": return "var(--brand-blue)";
+    case "REVIEW": return "var(--notion-blue)";
+    case "COMPLETED": return "var(--notion-green)";
+    default: return "var(--notion-text-muted)";
+  }
+}
+
+/* ─── Section Header ─── */
+function SectionHeader({ title, trailing }: { title: string; trailing?: string }) {
+  return (
+    <div className="flex items-center gap-3">
+      <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: "var(--brand-blue)" }} />
+      <h3 className="text-[10px] font-bold uppercase tracking-[0.35em]" style={{ color: "var(--notion-text-secondary)" }}>
+        {title}
+      </h3>
+      <div className="flex-1 h-px" style={{ background: "var(--notion-border)" }} />
+      {trailing && (
+        <span className="text-[9px] font-mono tracking-widest uppercase opacity-30 cursor-default select-none" style={{ color: "var(--notion-text-secondary)" }}>
+          {trailing}
+        </span>
+      )}
+    </div>
+  );
+}
+
 export default function TasksPage() {
   const { data: session } = useSession();
-  // SWR for Caching
   const fetcher = (url: string) => fetch(url).then((res) => res.json());
   const { data: tasksData, error, mutate } = useSWR<Task[]>("/api/tasks", fetcher);
+  const { data: usersData } = useSWR<User[]>("/api/users", fetcher);
+
   const tasks = tasksData || [];
+  const users = usersData || [];
   const loading = !tasksData && !error;
 
-  const [users, setUsers] = useState<User[]>([]);
+  const { mutate: globalMutate } = useSWRConfig();
 
-  // View State
+  const refreshDashboard = () => {
+    globalMutate("/api/admin/stats");
+    globalMutate("/api/tasks?limit=5");
+  };
+
   const [viewMode, setViewMode] = useState<"list" | "board">("board");
   const [showModal, setShowModal] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -63,11 +113,10 @@ export default function TasksPage() {
   const [statusFilter, setStatusFilter] = useState("");
   const [isMobile, setIsMobile] = useState(false);
 
-  // Drag & Drop State
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   const [statusOverrides, setStatusOverrides] = useState<Record<string, string>>({});
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
-  // Celebration & Toast
   const { celebrate, showStreak } = useCelebration();
   const { success, error: showError } = useToast();
 
@@ -81,10 +130,6 @@ export default function TasksPage() {
   });
 
   useEffect(() => {
-    fetchUsers();
-  }, []);
-
-  useEffect(() => {
     const media = window.matchMedia("(max-width: 1024px)");
     const update = () => setIsMobile(media.matches);
     update();
@@ -92,20 +137,42 @@ export default function TasksPage() {
     return () => media.removeEventListener("change", update);
   }, []);
 
-  const fetchUsers = async () => {
-    try {
-      const res = await fetch("/api/users");
-      if (res.ok) {
-        const data = await res.json();
-        setUsers(data);
-      }
-    } catch (error) { console.error(error); }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const method = editingTask ? "PUT" : "POST";
-    const url = editingTask ? `/api/tasks/${editingTask.id}` : "/api/tasks";
+    const isEditing = !!editingTask;
+    const method = isEditing ? "PUT" : "POST";
+    const url = isEditing ? `/api/tasks/${editingTask!.id}` : "/api/tasks";
+
+    // Optimistic update — update UI before server responds
+    if (isEditing && editingTask) {
+      const optimisticTasks = tasks.map(t =>
+        t.id === editingTask.id
+          ? {
+            ...t,
+            title: formData.title,
+            description: formData.description || null,
+            priority: formData.priority as Task["priority"],
+            status: formData.status as Task["status"],
+            dueDate: formData.dueDate || null,
+            assignee: users.find(u => u.id === formData.assigneeId) || t.assignee,
+          }
+          : t
+      );
+      mutate(optimisticTasks, false);
+    } else {
+      const tempTask: Task = {
+        id: `temp-${Date.now()}`,
+        title: formData.title,
+        description: formData.description || null,
+        priority: formData.priority as Task["priority"],
+        status: formData.status as Task["status"],
+        dueDate: formData.dueDate || null,
+        assignee: users.find(u => u.id === formData.assigneeId) || null,
+      };
+      mutate([...tasks, tempTask], false);
+    }
+    closeModal();
+    success(isEditing ? "Task updated" : "Task created");
 
     try {
       const res = await fetch(url, {
@@ -113,29 +180,24 @@ export default function TasksPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       });
-
-      if (res.ok) {
-        mutate(); // Revalidate cache explicitly
-        closeModal();
-        success(editingTask ? "Task updated" : "Task created");
-      }
-    } catch (error) { console.error(error); }
+      if (!res.ok) throw new Error("Failed");
+      mutate();
+      refreshDashboard();
+    } catch (error) {
+      console.error(error);
+      mutate(); // revert optimistic update
+      showError(isEditing ? "Failed to update task" : "Failed to create task");
+    }
   };
 
   const handleDelete = async (taskId: string) => {
     if (!confirm("Are you sure you want to delete this task?")) return;
-
-    // Optimistic update
     mutate(tasks.filter(t => t.id !== taskId), false);
-
     try {
       const res = await fetch(`/api/tasks/${taskId}`, { method: "DELETE" });
-      if (!res.ok) mutate(); // Revert if failed
-      else success("Task deleted");
-    } catch (error) {
-      console.error(error);
-      mutate();
-    }
+      if (!res.ok) mutate();
+      else { success("Task deleted"); refreshDashboard(); }
+    } catch (error) { console.error(error); mutate(); }
   };
 
   const handleDragStart = (e: React.DragEvent, taskId: string) => {
@@ -153,22 +215,15 @@ export default function TasksPage() {
   const handleDrop = async (e: React.DragEvent, status: string) => {
     e.preventDefault();
     e.stopPropagation();
-
     const taskId = e.dataTransfer.getData("text/plain") || draggedTaskId;
     if (!taskId) return;
-
     const task = tasks.find(t => t.id === taskId);
     if (task && task.status !== status) {
-      // Optimistic update
       const updatedTasks = tasks.map(t =>
         t.id === taskId ? { ...t, status: status as any } : t
       );
-
-      // Update local cache immediately without waiting for API
       mutate(updatedTasks, false);
       setDraggedTaskId(null);
-
-      // Celebrate
       if (status === "COMPLETED" && task.status !== "COMPLETED") {
         celebrate("confetti");
         success("Task completed");
@@ -177,17 +232,15 @@ export default function TasksPage() {
           setTimeout(() => showStreak(completedToday, "tasks completed today!"), 500);
         }
       }
-
       try {
         await fetch(`/api/tasks/${taskId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ status })
         });
-        mutate(); // Revalidate to ensure server sync
-      } catch (err) {
-        mutate(); // Revert on error
-      }
+        mutate();
+        refreshDashboard();
+      } catch (err) { mutate(); }
     }
     setDraggedTaskId(null);
   };
@@ -195,13 +248,10 @@ export default function TasksPage() {
   const updateTaskStatus = async (taskId: string, status: string) => {
     const task = tasks.find(t => t.id === taskId);
     if (!task || task.status === status) return true;
-
     const updatedTasks = tasks.map(t =>
       t.id === taskId ? { ...t, status: status as any } : t
     );
-
     mutate(updatedTasks, false);
-
     if (status === "COMPLETED" && task.status !== "COMPLETED") {
       celebrate("confetti");
       success("Task completed");
@@ -210,7 +260,6 @@ export default function TasksPage() {
         setTimeout(() => showStreak(completedToday, "tasks completed today!"), 500);
       }
     }
-
     try {
       const res = await fetch(`/api/tasks/${taskId}`, {
         method: 'PUT',
@@ -219,11 +268,9 @@ export default function TasksPage() {
       });
       if (!res.ok) throw new Error("Failed to update status");
       mutate();
+      refreshDashboard();
       return true;
-    } catch (err) {
-      mutate();
-      return false;
-    }
+    } catch (err) { mutate(); return false; }
   };
 
   const openModal = (task?: Task) => {
@@ -239,14 +286,7 @@ export default function TasksPage() {
       });
     } else {
       setEditingTask(null);
-      setFormData({
-        title: "",
-        description: "",
-        priority: "MEDIUM",
-        status: "TODO",
-        dueDate: "",
-        assigneeId: "",
-      });
+      setFormData({ title: "", description: "", priority: "MEDIUM", status: "TODO", dueDate: "", assigneeId: "" });
     }
     setShowModal(true);
   };
@@ -263,11 +303,8 @@ export default function TasksPage() {
   });
 
   const statusOptions = ["TODO", "IN_PROGRESS", "REVIEW", "COMPLETED"];
-
-  // Board Columns
   const boardColumns = ["TODO", "IN_PROGRESS", "REVIEW", "COMPLETED"];
 
-  // List Columns
   const listColumns = [
     {
       key: "title",
@@ -283,7 +320,7 @@ export default function TasksPage() {
             assignee: row.assignee ? `${row.assignee.firstName} ${row.assignee.lastName}` : undefined,
           }}
         >
-          <span className="font-medium" style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+          <span className="font-medium hover:text-[var(--brand-blue)] transition-colors" style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }} onClick={() => setSelectedTaskId(row.id)}>
             {row.priority === 'URGENT' && <Zap size={14} color="var(--notion-red)" />}
             {row.title}
           </span>
@@ -326,39 +363,46 @@ export default function TasksPage() {
 
   const effectiveViewMode = isMobile ? "list" : viewMode;
 
+  /* ─── Metric counts ─── */
+  const todoCount = tasks.filter(t => t.status === "TODO").length;
+  const inProgressCount = tasks.filter(t => t.status === "IN_PROGRESS").length;
+  const completedCount = tasks.filter(t => t.status === "COMPLETED").length;
+
   return (
     <PageContainer
       title="Tasks"
       icon="✅"
       action={
-        <div className="responsive-actions">
+        <div className="flex items-center gap-2">
           {!isMobile && (
-            <div style={{ display: 'flex', background: 'var(--notion-bg-secondary)', borderRadius: 'var(--radius-sm)', padding: '2px' }}>
+            <div className="flex" style={{ background: 'var(--notion-bg-tertiary)', borderRadius: '2px', padding: '2px' }}>
               <button
                 onClick={() => setViewMode("list")}
+                className="transition-colors"
                 style={{
-                  padding: '4px 8px',
-                  background: viewMode === "list" ? 'var(--notion-bg-tertiary)' : 'transparent',
-                  borderRadius: 'var(--radius-sm)',
-                  border: 'none',
+                  padding: '5px 8px',
+                  background: viewMode === "list" ? 'var(--notion-bg-secondary)' : 'transparent',
+                  borderRadius: '2px',
+                  border: viewMode === "list" ? '1px solid var(--notion-border)' : '1px solid transparent',
                   cursor: 'pointer',
                   color: viewMode === "list" ? 'var(--notion-text)' : 'var(--notion-text-muted)'
                 }}
               >
-                <List size={16} />
+                <List size={14} />
               </button>
               <button
                 onClick={() => setViewMode("board")}
+                className="transition-colors"
                 style={{
-                  padding: '4px 8px',
-                  background: viewMode === "board" ? 'var(--notion-bg-tertiary)' : 'transparent',
-                  borderRadius: 'var(--radius-sm)',
-                  border: 'none',
+                  padding: '5px 8px',
+                  background: viewMode === "board" ? 'var(--notion-bg-secondary)' : 'transparent',
+                  borderRadius: '2px',
+                  border: viewMode === "board" ? '1px solid var(--notion-border)' : '1px solid transparent',
                   cursor: 'pointer',
                   color: viewMode === "board" ? 'var(--notion-text)' : 'var(--notion-text-muted)'
                 }}
               >
-                <LayoutTemplate size={16} />
+                <LayoutTemplate size={14} />
               </button>
             </div>
           )}
@@ -368,64 +412,119 @@ export default function TasksPage() {
     >
       <Breadcrumb />
 
-      {/* Filter Bar */}
-      <div className="responsive-stack" style={{ margin: '24px 0', borderBottom: '1px solid var(--notion-divider)', paddingBottom: '16px' }}>
-        <Input placeholder="Search tasks..." icon={<Search size={14} />} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} fullWidth={false} />
+      {/* ═══ Stat Tiles ═══ */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6 mb-8">
+        {[
+          { label: "To Do", count: todoCount, color: "var(--notion-text)", accent: "var(--notion-text-muted)", icon: CheckSquare, delay: 0.1 },
+          { label: "In Progress", count: inProgressCount, color: "var(--brand-blue)", accent: "var(--brand-blue)", icon: Zap, delay: 0.2 },
+          { label: "Done", count: completedCount, color: "var(--notion-green)", accent: "var(--notion-green)", icon: CheckCircle2, delay: 0.3 },
+        ].map((m) => (
+          <Card key={m.label} animated delay={m.delay} padding="none" hoverEffect className="group flex flex-col justify-between relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-[1px]" style={{ background: `linear-gradient(to right, transparent, ${m.accent}, transparent)` }} />
+            <div className="p-6 flex flex-col justify-between h-full">
+              <div className="flex justify-between items-start mb-5">
+                <m.icon size={16} style={{ color: m.accent }} />
+              </div>
+              <div>
+                <div className="text-4xl font-extralight tabular-nums tracking-tighter mb-1" style={{ color: m.color }}>
+                  {m.count}
+                </div>
+                <div className="text-[10px] uppercase tracking-[0.2em] font-bold" style={{ color: "var(--notion-text-muted)" }}>
+                  {m.label}
+                </div>
+              </div>
+            </div>
+          </Card>
+        ))}
       </div>
 
+      {/* ═══ Filter Bar ═══ */}
+      <Card animated delay={0.35} padding="none" className="mb-6 overflow-hidden">
+        <div className="px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-4">
+          <div className="flex items-center gap-3 flex-1">
+            <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: "var(--brand-blue)" }} />
+            <span className="text-[10px] font-bold uppercase tracking-[0.25em]" style={{ color: "var(--notion-text-secondary)" }}>
+              {effectiveViewMode === "board" ? "Board" : "List"}
+            </span>
+            <div className="flex-1 h-px" style={{ background: "var(--notion-border)" }} />
+            <span className="text-[9px] font-mono tracking-widest uppercase" style={{ color: "var(--brand-blue)" }}>
+              {filteredTasks.length} tasks
+            </span>
+          </div>
+          <div className="shrink-0">
+            <Input placeholder="Search tasks..." icon={<Search size={14} />} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} fullWidth={false} />
+          </div>
+        </div>
+      </Card>
+
+      {/* ═══ Content ═══ */}
       {loading ? (
-        <div className="skeleton" style={{ width: '100%', height: '300px' }} />
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map(i => (
+            <Card key={i} padding="none" className="h-64">
+              <div className="h-[2px] w-full skeleton" />
+              <div className="p-4 flex flex-col gap-3">
+                <div className="skeleton h-4 w-24 rounded" />
+                {[1, 2, 3].map(j => <div key={j} className="skeleton h-16 w-full rounded" />)}
+              </div>
+            </Card>
+          ))}
+        </div>
       ) : effectiveViewMode === "list" ? (
         isMobile ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          /* ─── Mobile Task Cards ─── */
+          <div className="flex flex-col gap-3">
             {filteredTasks.length === 0 ? (
-              <div style={{ padding: '16px', color: 'var(--notion-text-muted)', fontSize: '14px' }}>
-                No tasks found.
-              </div>
+              <Card animated delay={0.3} padding="none" className="overflow-hidden">
+                <div className="flex flex-col items-center justify-center py-20 gap-2" style={{ color: "var(--notion-text-muted)" }}>
+                  <CheckSquare size={20} strokeWidth={1} />
+                  <span className="text-[11px] tracking-widest uppercase">No tasks found</span>
+                </div>
+              </Card>
             ) : (
-              filteredTasks.map((task) => (
-                <div
+              filteredTasks.map((task, idx) => (
+                <motion.div
                   key={task.id}
-                  className="notion-card"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.35, delay: idx * 0.04, ease: [0.16, 1, 0.3, 1] }}
+                  className="group/card relative overflow-hidden transition-all duration-300"
                   style={{
-                    backgroundColor: 'var(--notion-bg-secondary)',
-                    padding: '12px',
-                    borderRadius: 'var(--radius-sm)',
-                    border: '1px solid var(--notion-border)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '8px'
+                    background: "var(--notion-bg-secondary)",
+                    border: "1px solid var(--notion-border)",
+                    borderRadius: "var(--radius-md)",
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    {task.priority === 'URGENT' && <Zap size={14} color="var(--notion-red)" />}
-                    <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--notion-text)' }}>
-                      {task.title}
+                  {/* Hover glow */}
+                  <div className="absolute inset-0 z-0 opacity-0 group-hover/card:opacity-100 transition-opacity duration-500 pointer-events-none"
+                    style={{ background: 'radial-gradient(circle at center, var(--notion-bg-active) 0%, transparent 70%)' }} />
+
+                  {/* Priority left accent */}
+                  <div className="absolute left-0 top-0 bottom-0 w-[2px]" style={{ background: priColor(task.priority) }} />
+
+                  <div className="relative z-10 p-4 pl-5">
+                    <div className="flex items-center gap-2 mb-2">
+                      {task.priority === 'URGENT' && <Zap size={12} color="var(--notion-red)" />}
+                      <span className="text-[13px] font-medium cursor-pointer hover:text-[var(--brand-blue)] transition-colors" style={{ color: "var(--notion-text)" }} onClick={() => setSelectedTaskId(task.id)}>{task.title}</span>
                     </div>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                    <Badge variant={task.status === 'COMPLETED' ? 'success' : task.status === 'IN_PROGRESS' ? 'info' : 'default'} size="sm">
-                      {task.status.replace('_', ' ')}
-                    </Badge>
-                    <Badge variant={task.priority === 'URGENT' ? 'error' : task.priority === 'HIGH' ? 'warning' : 'default'} size="sm">
-                      {task.priority}
-                    </Badge>
-                    {task.assignee && (
-                      <span style={{ fontSize: '12px', color: 'var(--notion-text-secondary)' }}>
-                        {task.assignee.firstName}
-                      </span>
-                    )}
-                    {task.dueDate && (
-                      <span style={{ fontSize: '12px', color: 'var(--notion-text-muted)' }}>
-                        Due {new Date(task.dueDate).toLocaleDateString()}
-                      </span>
-                    )}
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    <label style={{ fontSize: '12px', color: 'var(--notion-text-muted)' }}>
-                      Status
-                    </label>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                    <div className="flex items-center gap-2 flex-wrap mb-3">
+                      <Badge variant={task.status === 'COMPLETED' ? 'success' : task.status === 'IN_PROGRESS' ? 'info' : 'default'} size="sm">
+                        {task.status.replace('_', ' ')}
+                      </Badge>
+                      <Badge variant={task.priority === 'URGENT' ? 'error' : task.priority === 'HIGH' ? 'warning' : 'default'} size="sm">
+                        {task.priority}
+                      </Badge>
+                      {task.assignee && (
+                        <span className="text-[11px]" style={{ color: "var(--notion-text-secondary)" }}>{task.assignee.firstName}</span>
+                      )}
+                      {task.dueDate && (
+                        <span className="text-[11px] font-mono" style={{ color: "var(--notion-text-muted)" }}>
+                          {new Date(task.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                        </span>
+                      )}
+                    </div>
+                    {/* Status switcher */}
+                    <div className="flex flex-wrap gap-1.5">
                       {statusOptions.map((status) => {
                         const isActive = (statusOverrides[task.id] ?? task.status) === status;
                         const isUpdating = statusOverrides[task.id] !== undefined;
@@ -435,10 +534,9 @@ export default function TasksPage() {
                             type="button"
                             disabled={isUpdating && !isActive}
                             onClick={async () => {
-                              const nextStatus = status;
-                              if (nextStatus === task.status) return;
-                              setStatusOverrides(prev => ({ ...prev, [task.id]: nextStatus }));
-                              const ok = await updateTaskStatus(task.id, nextStatus);
+                              if (status === task.status) return;
+                              setStatusOverrides(prev => ({ ...prev, [task.id]: status }));
+                              const ok = await updateTaskStatus(task.id, status);
                               setStatusOverrides(prev => {
                                 const updated = { ...prev };
                                 delete updated[task.id];
@@ -446,15 +544,19 @@ export default function TasksPage() {
                               });
                               if (!ok) showError("Couldn't update task status");
                             }}
+                            className="transition-all"
                             style={{
-                              padding: '6px 10px',
+                              padding: '4px 8px',
                               background: isActive ? 'var(--notion-bg-tertiary)' : 'transparent',
-                              border: '1px solid var(--notion-border)',
+                              border: isActive ? '1px solid var(--brand-blue)' : '1px solid var(--notion-border)',
                               color: isActive ? 'var(--notion-text)' : 'var(--notion-text-secondary)',
-                              borderRadius: '999px',
-                              fontSize: '11px',
+                              borderRadius: '4px',
+                              fontSize: '10px',
+                              fontWeight: isActive ? 600 : 400,
+                              letterSpacing: '0.05em',
+                              textTransform: 'uppercase' as const,
                               cursor: isUpdating && !isActive ? 'not-allowed' : 'pointer',
-                              opacity: isUpdating && !isActive ? 0.6 : 1
+                              opacity: isUpdating && !isActive ? 0.5 : 1,
                             }}
                           >
                             {status.replace('_', ' ')}
@@ -463,7 +565,7 @@ export default function TasksPage() {
                       })}
                     </div>
                   </div>
-                </div>
+                </motion.div>
               ))
             )}
           </div>
@@ -471,7 +573,7 @@ export default function TasksPage() {
           <Table columns={listColumns} data={filteredTasks} />
         )
       ) : (
-        // Kanban Board View
+        /* ═══ Kanban Board View ═══ */
         <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(4, 1fr)',
@@ -479,100 +581,154 @@ export default function TasksPage() {
           overflowX: 'auto',
           paddingBottom: '24px'
         }}>
-          {boardColumns.map(status => (
-            <div
+          {boardColumns.map((status, colIdx) => (
+            <Card
               key={status}
-              onDragOver={handleDragOver}
-              onDrop={(e) => handleDrop(e, status)}
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '12px',
-                minWidth: '200px'
-              }}
+              animated
+              delay={0.4 + colIdx * 0.08}
+              padding="none"
+              hoverEffect={false}
+              className="flex flex-col relative overflow-hidden"
+              style={{ minWidth: '200px' }}
             >
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '4px 8px',
-                borderRadius: 'var(--radius-sm)',
-                background: 'var(--notion-bg-secondary)'
-              }}>
-                <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--notion-text-secondary)' }}>
-                  {status.replace('_', ' ')}
-                </span>
-                <span style={{ fontSize: '11px', color: 'var(--notion-text-muted)' }}>
-                  {filteredTasks.filter(t => t.status === status).length}
-                </span>
-              </div>
+              <div
+                onDragOver={handleDragOver}
+                onDrop={(e) => handleDrop(e, status)}
+                className="flex flex-col h-full"
+              >
+                {/* Column header — gradient accent bar on top */}
+                <div className="relative">
+                  <div className="h-[2px] w-full" style={{ background: `linear-gradient(to right, transparent, ${statusAccent(status)}, transparent)` }} />
+                  <div className="flex items-center justify-between px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      {status === 'TODO' && <CheckSquare size={12} style={{ color: statusAccent(status) }} />}
+                      {status === 'IN_PROGRESS' && <Zap size={12} style={{ color: statusAccent(status) }} />}
+                      {status === 'REVIEW' && <Clock size={12} style={{ color: statusAccent(status) }} />}
+                      {status === 'COMPLETED' && <CheckCircle2 size={12} style={{ color: statusAccent(status) }} />}
+                      <span className="text-[10px] font-bold uppercase tracking-[0.2em]" style={{ color: "var(--notion-text-secondary)" }}>
+                        {status.replace('_', ' ')}
+                      </span>
+                    </div>
+                    <span
+                      className="text-[9px] font-mono tabular-nums px-1.5 py-0.5"
+                      style={{ color: statusAccent(status), background: "rgba(255,255,255,0.04)", borderRadius: "4px", border: "1px solid var(--notion-border)" }}
+                    >
+                      {filteredTasks.filter(t => t.status === status).length}
+                    </span>
+                  </div>
+                </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', minHeight: '200px' }}>
-                {filteredTasks.filter(t => t.status === status).map(task => (
-                  <div
-                    key={task.id}
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, task.id)}
-                    onDragEnd={(e) => {
-                      e.currentTarget.classList.remove('opacity-50');
-                      setDraggedTaskId(null);
-                    }}
-                    className="notion-card hover-reveal-parent"
-                    style={{
-                      backgroundColor: 'var(--notion-bg-secondary)',
-                      padding: '12px',
-                      borderRadius: 'var(--radius-sm)',
-                      border: '1px solid transparent',
-                      cursor: 'grab',
-                      boxShadow: 'var(--shadow-sm)',
-                      position: 'relative'
-                    }}
-                  >
-                    <TaskHoverPreview
-                      task={{
-                        title: task.title,
-                        status: task.status,
-                        priority: task.priority,
-                        dueDate: task.dueDate ? new Date(task.dueDate).toLocaleDateString() : undefined,
-                        assignee: task.assignee ? `${task.assignee.firstName} ${task.assignee.lastName}` : undefined,
+                {/* Cards */}
+                <div className="flex flex-col gap-2 p-2 flex-1" style={{ minHeight: '200px' }}>
+                  {filteredTasks.filter(t => t.status === status).length === 0 && (
+                    <div className="flex flex-col items-center justify-center flex-1 gap-2 py-10" style={{ color: "var(--notion-text-muted)" }}>
+                      <CheckSquare size={16} strokeWidth={1} />
+                      <span className="text-[9px] tracking-widest uppercase">No tasks</span>
+                    </div>
+                  )}
+                  {filteredTasks.filter(t => t.status === status).map((task, cardIdx) => (
+                    <motion.div
+                      key={task.id}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.35, delay: cardIdx * 0.04, ease: [0.16, 1, 0.3, 1] }}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e as any, task.id)}
+                      onDragEnd={(e) => {
+                        (e.currentTarget as HTMLElement).style.opacity = '1';
+                        setDraggedTaskId(null);
+                      }}
+                      className="group/card relative overflow-hidden transition-all duration-300 cursor-grab"
+                      style={{
+                        background: "var(--notion-bg-secondary)",
+                        border: "1px solid var(--notion-border)",
+                        borderRadius: "var(--radius-md)",
+                      }}
+                      whileHover={{
+                        borderColor: "rgba(255,255,255,0.1)",
+                        boxShadow: "0 4px 24px rgba(0,0,0,0.2)",
                       }}
                     >
-                      <div style={{ fontSize: '14px', fontWeight: '500', color: 'var(--notion-text)', marginBottom: '8px', cursor: 'pointer' }}>
-                        {task.title}
-                      </div>
-                    </TaskHoverPreview>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Badge variant={task.priority === 'URGENT' ? 'error' : task.priority === 'HIGH' ? 'warning' : 'default'} size="sm">
-                        {task.priority}
-                      </Badge>
-                      {task.assignee && (
-                        <div style={{
-                          width: '20px', height: '20px',
-                          borderRadius: '50%', backgroundColor: 'var(--notion-bg-tertiary)',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px'
-                        }}>
-                          {task.assignee.firstName[0]}
-                        </div>
-                      )}
-                    </div>
+                      {/* Hover glow */}
+                      <div className="absolute inset-0 z-0 opacity-0 group-hover/card:opacity-100 transition-opacity duration-500 pointer-events-none"
+                        style={{ background: 'radial-gradient(circle at center, var(--notion-bg-active) 0%, transparent 70%)' }} />
 
-                    {/* Hover Actions */}
-                    <div className="hover-reveal" style={{
-                      position: 'absolute', top: '8px', right: '8px',
-                      display: 'flex', gap: '4px', background: 'var(--notion-bg-secondary)'
-                    }}>
-                      <button onClick={() => openModal(task)} style={{ padding: '4px', border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--notion-text-secondary)' }}><Edit size={12} /></button>
-                      <button onClick={() => handleDelete(task.id)} style={{ padding: '4px', border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--notion-red)' }}><Trash2 size={12} /></button>
-                    </div>
-                  </div>
-                ))}
+                      {/* Priority accent bar - left */}
+                      <div className="absolute left-0 top-0 bottom-0 w-[2px]" style={{ background: priColor(task.priority) }} />
+
+                      <div className="relative z-10 p-3 pl-4">
+                        <TaskHoverPreview
+                          task={{
+                            title: task.title,
+                            status: task.status,
+                            priority: task.priority,
+                            dueDate: task.dueDate ? new Date(task.dueDate).toLocaleDateString() : undefined,
+                            assignee: task.assignee ? `${task.assignee.firstName} ${task.assignee.lastName}` : undefined,
+                          }}
+                        >
+                          <div
+                            className="text-[13px] font-medium mb-2.5 cursor-pointer leading-snug hover:text-[var(--brand-blue)] transition-colors"
+                            style={{ color: "var(--notion-text)" }}
+                            onClick={(e) => { e.stopPropagation(); setSelectedTaskId(task.id); }}
+                          >
+                            {task.title}
+                          </div>
+                        </TaskHoverPreview>
+
+                        <div className="flex justify-between items-center">
+                          <Badge
+                            variant={task.priority === 'URGENT' ? 'error' : task.priority === 'HIGH' ? 'warning' : 'default'}
+                            size="sm"
+                            className="text-[8px] tracking-[0.1em] uppercase"
+                            style={{ background: "transparent", border: "1px solid var(--notion-border)", borderRadius: "4px" }}
+                          >
+                            {task.priority}
+                          </Badge>
+                          <div className="flex items-center gap-1.5">
+                            {task.dueDate && (
+                              <span className="text-[9px] font-mono" style={{ color: "var(--notion-text-muted)" }}>
+                                {new Date(task.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                              </span>
+                            )}
+                            {task.assignee && (
+                              <div
+                                className="w-5 h-5 flex items-center justify-center text-[9px] font-semibold"
+                                style={{
+                                  background: "var(--notion-bg-tertiary)",
+                                  borderRadius: "4px",
+                                  color: "var(--notion-text-secondary)",
+                                  border: "1px solid var(--notion-border)",
+                                }}
+                              >
+                                {task.assignee.firstName[0]}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Hover actions */}
+                      <div
+                        className="absolute top-2 right-2 z-20 flex gap-1 opacity-0 group-hover/card:opacity-100 transition-opacity"
+                        style={{ background: "var(--notion-bg-secondary)", borderRadius: "4px", padding: "2px", border: "1px solid var(--notion-border)" }}
+                      >
+                        <button onClick={() => openModal(task)} className="p-1 border-none bg-transparent cursor-pointer transition-colors hover:text-[var(--brand-blue)]" style={{ color: "var(--notion-text-secondary)" }}>
+                          <Edit size={11} />
+                        </button>
+                        <button onClick={() => handleDelete(task.id)} className="p-1 border-none bg-transparent cursor-pointer transition-colors hover:text-[var(--notion-red)]" style={{ color: "var(--notion-text-secondary)" }}>
+                          <Trash2 size={11} />
+                        </button>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
               </div>
-            </div>
+            </Card>
           ))}
         </div>
       )}
 
-      {/* Modal */}
+      {/* ═══ Modal ═══ */}
       <Modal isOpen={showModal} onClose={closeModal} title={editingTask ? "Edit Task" : "New Task"}>
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <Input
@@ -582,10 +738,9 @@ export default function TasksPage() {
             required
             autoFocus
           />
-
           <div className="responsive-stack">
             <div style={{ flex: 1 }}>
-              <label className="text-xs text-muted" style={{ display: 'block', marginBottom: '4px' }}>Status</label>
+              <label className="block text-[11px] font-semibold uppercase tracking-[0.1em] mb-1.5" style={{ color: 'var(--notion-text-secondary)' }}>Status</label>
               <Dropdown
                 options={[
                   { value: "TODO", label: "To Do" },
@@ -598,7 +753,7 @@ export default function TasksPage() {
               />
             </div>
             <div style={{ flex: 1 }}>
-              <label className="text-xs text-muted" style={{ display: 'block', marginBottom: '4px' }}>Priority</label>
+              <label className="block text-[11px] font-semibold uppercase tracking-[0.1em] mb-1.5" style={{ color: 'var(--notion-text-secondary)' }}>Priority</label>
               <Dropdown
                 options={[
                   { value: "LOW", label: "Low" },
@@ -611,7 +766,6 @@ export default function TasksPage() {
               />
             </div>
           </div>
-
           <div className="responsive-stack">
             <div style={{ flex: 1 }}>
               <Input
@@ -622,7 +776,7 @@ export default function TasksPage() {
               />
             </div>
             <div style={{ flex: 1 }}>
-              <label className="text-xs text-muted" style={{ display: 'block', marginBottom: '4px' }}>Assignee</label>
+              <label className="block text-[11px] font-semibold uppercase tracking-[0.1em] mb-1.5" style={{ color: 'var(--notion-text-secondary)' }}>Assignee</label>
               <select
                 style={{
                   width: '100%',
@@ -630,8 +784,9 @@ export default function TasksPage() {
                   background: 'var(--notion-bg-secondary)',
                   border: '1px solid var(--notion-border)',
                   color: 'var(--notion-text)',
-                  borderRadius: 'var(--radius-sm)',
-                  outline: 'none'
+                  borderRadius: 'var(--radius-md)',
+                  outline: 'none',
+                  fontSize: '14px',
                 }}
                 value={formData.assigneeId}
                 onChange={(e) => setFormData({ ...formData, assigneeId: e.target.value })}
@@ -643,9 +798,8 @@ export default function TasksPage() {
               </select>
             </div>
           </div>
-
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <label className="text-xs text-muted" style={{ display: 'block', marginBottom: '4px' }}>Description</label>
+            <label className="block text-[11px] font-semibold uppercase tracking-[0.1em] mb-1.5" style={{ color: 'var(--notion-text-secondary)' }}>Description</label>
             <textarea
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -656,7 +810,7 @@ export default function TasksPage() {
                 border: '1px solid var(--notion-border)',
                 color: 'var(--notion-text)',
                 padding: '8px 12px',
-                borderRadius: 'var(--radius-sm)',
+                borderRadius: 'var(--radius-md)',
                 resize: 'vertical',
                 fontSize: '14px',
                 fontFamily: 'var(--font-body)',
@@ -665,7 +819,6 @@ export default function TasksPage() {
               placeholder="Add more details..."
             />
           </div>
-
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '16px' }}>
             <Button type="button" variant="ghost" onClick={closeModal}>Cancel</Button>
             <Button type="submit" variant="primary">
@@ -674,6 +827,15 @@ export default function TasksPage() {
           </div>
         </form>
       </Modal>
+
+      {/* ═══ Detail Panel ═══ */}
+      <TaskDetailPanel
+        taskId={selectedTaskId}
+        isOpen={!!selectedTaskId}
+        onClose={() => setSelectedTaskId(null)}
+        onTaskUpdate={() => mutate()}
+        users={users}
+      />
     </PageContainer>
   );
 }

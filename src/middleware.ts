@@ -11,7 +11,19 @@ export default auth((req) => {
     const isApiRoute = req.nextUrl.pathname.startsWith("/api");
     const isPublicRoute = req.nextUrl.pathname === "/";
 
-    // Allow API routes to handle their own auth
+    // Whitelist: NextAuth endpoints must always be accessible
+    const isAuthApi = req.nextUrl.pathname.startsWith("/api/auth");
+
+    if (isAuthApi) {
+        return NextResponse.next();
+    }
+
+    // Block unauthenticated API requests (safety net for all routes)
+    if (isApiRoute && !isLoggedIn) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Allow authenticated API requests through (routes handle role checks)
     if (isApiRoute) {
         return NextResponse.next();
     }
@@ -32,3 +44,4 @@ export default auth((req) => {
 export const config = {
     matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };
+

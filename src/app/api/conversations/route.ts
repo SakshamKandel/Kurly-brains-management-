@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-// GET all conversations for current user with last message and unread count
+// GET all conversations for current user (DM + Groups)
 export async function GET() {
     try {
         const session = await auth();
@@ -12,9 +12,10 @@ export async function GET() {
 
         const currentUserId = session.user.id;
 
-        // Get all conversations where user is either user1 or user2
-        const conversations = await prisma.conversation.findMany({
+        // Fetch DM conversations (user1Id/user2Id pattern)
+        const dmConversations = await prisma.conversation.findMany({
             where: {
+                isGroup: false,
                 OR: [
                     { user1Id: currentUserId },
                     { user2Id: currentUserId }
@@ -34,9 +35,34 @@ export async function GET() {
             orderBy: { updatedAt: 'desc' }
         });
 
-        // Get unread counts for each conversation
-        const conversationsWithCounts = await Promise.all(
-            conversations.map(async (conv) => {
+        // Fetch group conversations (ConversationMember pattern)
+        const groupConversations = await prisma.conversation.findMany({
+            where: {
+                isGroup: true,
+                members: {
+                    some: { userId: currentUserId }
+                }
+            },
+            include: {
+                members: {
+                    include: {
+                        user: { select: { id: true, firstName: true, lastName: true, avatar: true, lastActive: true } }
+                    }
+                },
+                messages: {
+                    orderBy: { createdAt: 'desc' },
+                    take: 1,
+                    include: {
+                        sender: { select: { id: true, firstName: true, lastName: true, avatar: true } }
+                    }
+                }
+            },
+            orderBy: { updatedAt: 'desc' }
+        });
+
+        // Format DM conversations
+        const formattedDMs = await Promise.all(
+            dmConversations.map(async (conv) => {
                 const unreadCount = await prisma.message.count({
                     where: {
                         conversationId: conv.id,
@@ -45,15 +71,15 @@ export async function GET() {
                     }
                 });
 
-                // Determine the other user
                 const otherUser = conv.user1Id === currentUserId ? conv.user2 : conv.user1;
                 const lastMessage = conv.messages[0] || null;
 
                 return {
                     id: conv.id,
-                    isGroup: conv.isGroup,
+                    isGroup: false,
                     name: conv.name,
                     otherUser,
+                    memberDetails: null,
                     lastMessage: lastMessage ? {
                         content: lastMessage.content,
                         createdAt: lastMessage.createdAt,
@@ -66,7 +92,44 @@ export async function GET() {
             })
         );
 
-        return NextResponse.json(conversationsWithCounts);
+        // Format group conversations
+        const formattedGroups = await Promise.all(
+            groupConversations.map(async (conv) => {
+                const unreadCount = await prisma.message.count({
+                    where: {
+                        conversationId: conv.id,
+                        isRead: false,
+                        senderId: { not: currentUserId },
+                    }
+                });
+
+                const lastMessage = conv.messages[0] || null;
+
+                return {
+                    id: conv.id,
+                    isGroup: true,
+                    name: conv.name,
+                    otherUser: null,
+                    memberDetails: conv.members.map(m => m.user),
+                    memberCount: conv.members.length,
+                    lastMessage: lastMessage ? {
+                        content: lastMessage.content,
+                        createdAt: lastMessage.createdAt,
+                        senderId: lastMessage.senderId,
+                        senderName: `${lastMessage.sender.firstName} ${lastMessage.sender.lastName}`
+                    } : null,
+                    unreadCount,
+                    updatedAt: conv.updatedAt
+                };
+            })
+        );
+
+        // Combine and sort by updatedAt
+        const allConversations = [...formattedDMs, ...formattedGroups].sort(
+            (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+        );
+
+        return NextResponse.json(allConversations);
     } catch (error) {
         console.error("Error fetching conversations:", error);
         return NextResponse.json({ error: "Internal server error" }, { status: 500 });
@@ -87,31 +150,34 @@ export async function POST(request: Request) {
 
         if (isGroup) {
             // Create group conversation
-            if (!name || !memberIds || memberIds.length < 2) {
-                return NextResponse.json({ error: "Group needs name and at least 2 members" }, { status: 400 });
+            if (!name || !memberIds || memberIds.length < 1) {
+                return NextResponse.json({ error: "Group needs a name and at least 1 other member" }, { status: 400 });
             }
+
+            // Deduplicate and include current user
+            const allMemberIds = [...new Set([currentUserId, ...memberIds])];
 
             const conversation = await prisma.conversation.create({
                 data: {
                     name,
                     isGroup: true,
                     members: {
-                        create: [
-                            { userId: currentUserId },
-                            ...memberIds.map((id: string) => ({ userId: id }))
-                        ]
+                        create: allMemberIds.map(userId => ({ userId }))
                     }
                 },
                 include: {
                     members: {
                         include: {
-                            // Note: ConversationMember doesn't have user relation in schema
+                            user: { select: { id: true, firstName: true, lastName: true, avatar: true } }
                         }
                     }
                 }
             });
 
-            return NextResponse.json(conversation, { status: 201 });
+            return NextResponse.json({
+                ...conversation,
+                memberDetails: conversation.members.map(m => m.user),
+            }, { status: 201 });
         } else {
             // Create direct conversation
             const otherUserId = memberIds?.[0];

@@ -163,7 +163,7 @@ export function CelebrationProvider({ children }: { children: ReactNode }) {
                     <div style={{
                         fontSize: "64px",
                         fontWeight: 800,
-                        color: "var(--notion-orange)",
+                        color: "var(--notion-blue)",
                         textShadow: "0 0 40px rgba(242, 153, 74, 0.5)",
                     }}>
                         {streak.count}🔥

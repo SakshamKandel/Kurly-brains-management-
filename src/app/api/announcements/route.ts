@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 export async function GET() {
     try {
         const session = await auth();
-        if (!session) {
+        if (!session?.user?.id) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
@@ -38,7 +38,7 @@ export async function POST(request: Request) {
         }
 
         // Only admins can create announcements
-        if (session.user.role !== "ADMIN") {
+        if (!["ADMIN", "SUPER_ADMIN"].includes(session.user.role || "")) {
             return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 

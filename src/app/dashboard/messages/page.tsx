@@ -31,60 +31,38 @@ export default function MessagesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [usersLoading, setUsersLoading] = useState(true);
 
-  // Custom hooks
   const { conversations, loading: convsLoading, totalUnread, refreshConversations } = useConversations();
   const { messages, loading: msgsLoading, sendMessage } = useMessages(selectedUserId);
   const { otherUserTyping, sendTypingStatus } = useTypingIndicator(selectedUserId);
   const [showGroupModal, setShowGroupModal] = useState(false);
 
-  // Fetch users for new conversations
   useEffect(() => {
     const fetchUsers = async () => {
       try {
         const res = await fetch("/api/users", { cache: "no-store" });
-        if (res.ok) {
-          const data = await res.json();
-          setUsers(data.filter((u: User) => u.id !== session?.user?.id));
-        }
-      } catch (error) {
-        console.error("Failed to fetch users:", error);
-      } finally {
-        setUsersLoading(false);
-      }
+        if (res.ok) { const data = await res.json(); setUsers(data.filter((u: User) => u.id !== session?.user?.id)); }
+      } catch (error) { console.error("Failed to fetch users:", error); }
+      finally { setUsersLoading(false); }
     };
-    fetchUsers();
     fetchUsers();
   }, [session]);
 
-  // Sync with URL params
   useEffect(() => {
     const userIdFromUrl = searchParams.get("userId");
-    if (userIdFromUrl) {
-      setSelectedUserId(userIdFromUrl);
-    }
+    if (userIdFromUrl) setSelectedUserId(userIdFromUrl);
   }, [searchParams]);
 
-  // Get selected user info
   const selectedUser = selectedUserId
-    ? users.find(u => u.id === selectedUserId) ||
-    conversations.find(c => c.otherUser?.id === selectedUserId)?.otherUser
+    ? users.find(u => u.id === selectedUserId) || conversations.find(c => c.otherUser?.id === selectedUserId)?.otherUser
     : null;
 
-  // Merge users with conversations for the list
   const conversationData = users.map(user => {
     const existingConv = conversations.find(c => c.otherUser?.id === user.id);
-    return existingConv || {
-      id: `new-${user.id}`,
-      otherUser: user,
-      lastMessage: null,
-      unreadCount: 0
-    };
+    return existingConv || { id: `new-${user.id}`, otherUser: user, lastMessage: null, unreadCount: 0 };
   }).sort((a, b) => {
     if (a.lastMessage && !b.lastMessage) return -1;
     if (!a.lastMessage && b.lastMessage) return 1;
-    if (a.lastMessage && b.lastMessage) {
-      return new Date(b.lastMessage.createdAt).getTime() - new Date(a.lastMessage.createdAt).getTime();
-    }
+    if (a.lastMessage && b.lastMessage) return new Date(b.lastMessage.createdAt).getTime() - new Date(a.lastMessage.createdAt).getTime();
     return 0;
   });
 
@@ -94,33 +72,24 @@ export default function MessagesPage() {
         <Breadcrumb />
 
         <div className="messages-layout">
-
           {/* Contacts Sidebar */}
           <div className="messages-sidebar">
             {/* Header */}
             <div style={{
-              padding: "var(--space-3) var(--space-4)",
+              padding: "12px 16px",
               borderBottom: "1px solid var(--notion-divider)",
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
             }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
-                <span style={{
-                  fontSize: "15px",
-                  fontWeight: "600",
-                  color: "var(--notion-text)",
-                }}>
+              <div className="flex items-center gap-2">
+                <div className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--brand-blue)" }} />
+                <span className="text-[12px] font-bold uppercase tracking-[0.15em]" style={{ color: "var(--notion-text-secondary)" }}>
                   Conversations
                 </span>
                 {totalUnread > 0 && (
-                  <span style={{
-                    backgroundColor: "var(--notion-blue)",
-                    color: "white",
-                    fontSize: "11px",
-                    fontWeight: "600",
-                    padding: "2px 8px",
-                    borderRadius: "var(--radius-full)",
+                  <span className="px-1.5 py-0.5 text-[10px] font-bold" style={{
+                    backgroundColor: "var(--brand-blue)", color: "white", borderRadius: "2px",
                   }}>
                     {totalUnread}
                   </span>
@@ -128,48 +97,26 @@ export default function MessagesPage() {
               </div>
               <button
                 onClick={() => setShowGroupModal(true)}
-                className="hover-bg"
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  cursor: "pointer",
-                  padding: "var(--space-1)",
-                  color: "var(--notion-text-secondary)",
-                  borderRadius: "var(--radius-sm)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
+                className="p-1.5 border-none bg-transparent cursor-pointer transition-colors hover:text-[var(--brand-blue)]"
+                style={{ color: "var(--notion-text-secondary)", borderRadius: "2px", display: "flex", alignItems: "center" }}
                 title="Create Group"
               >
-                <Users size={18} />
+                <Users size={16} />
               </button>
             </div>
 
             {/* Search */}
-            <div style={{ padding: "var(--space-3)", borderBottom: "1px solid var(--notion-divider)" }}>
-              <Input
-                placeholder="Search..."
-                icon={<Search size={14} />}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
+            <div style={{ padding: "12px", borderBottom: "1px solid var(--notion-divider)" }}>
+              <Input placeholder="Search..." icon={<Search size={14} />} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
             </div>
 
             {/* Conversations List */}
             {usersLoading || convsLoading ? (
-              <div style={{ padding: "var(--space-4)" }}>
-                {[1, 2, 3].map(i => (
-                  <div key={i} className="skeleton" style={{ height: "60px", marginBottom: "var(--space-2)", borderRadius: "var(--radius-md)" }} />
-                ))}
+              <div className="p-4 flex flex-col gap-2">
+                {[1, 2, 3].map(i => (<div key={i} className="skeleton h-14 rounded-sm" />))}
               </div>
             ) : (
-              <ConversationList
-                conversations={conversationData}
-                selectedUserId={selectedUserId}
-                onSelect={setSelectedUserId}
-                searchQuery={searchQuery}
-              />
+              <ConversationList conversations={conversationData} selectedUserId={selectedUserId} onSelect={setSelectedUserId} searchQuery={searchQuery} />
             )}
           </div>
 
@@ -179,80 +126,46 @@ export default function MessagesPage() {
               <>
                 {/* Chat Header */}
                 <div style={{
-                  padding: "var(--space-3) var(--space-5)",
+                  padding: "12px 20px",
                   borderBottom: "1px solid var(--notion-divider)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between",
                   backgroundColor: "var(--notion-bg-secondary)",
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+                  <div className="flex items-center gap-3">
                     <Avatar src={selectedUser.avatar || undefined} name={`${selectedUser.firstName} ${selectedUser.lastName}`} size="md" />
                     <div>
-                      <div style={{ fontWeight: "600", color: "var(--notion-text)", fontSize: "15px" }}>
+                      <div className="text-[14px] font-semibold" style={{ color: "var(--notion-text)" }}>
                         {selectedUser.firstName} {selectedUser.lastName}
                       </div>
                       {otherUserTyping.isTyping && (
-                        <div style={{ fontSize: "12px", color: "var(--notion-green)" }}>
-                          typing...
-                        </div>
+                        <div className="text-[11px]" style={{ color: "var(--notion-green)" }}>typing...</div>
                       )}
                     </div>
                   </div>
-                  <button
-                    className="hover-bg"
-                    style={{
-                      background: 'transparent',
-                      border: 'none',
-                      color: 'var(--notion-text-secondary)',
-                      cursor: 'pointer',
-                      padding: 'var(--space-2)',
-                      borderRadius: 'var(--radius-sm)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <MoreVertical size={18} />
+                  <button className="p-1.5 border-none bg-transparent cursor-pointer transition-colors hover:text-[var(--brand-blue)]" style={{ color: "var(--notion-text-secondary)", display: "flex", alignItems: "center" }}>
+                    <MoreVertical size={16} />
                   </button>
                 </div>
 
-                {/* Messages */}
                 <ChatArea messages={messages} loading={msgsLoading} />
-
-                {/* Input */}
-                <MessageInput
-                  onSend={sendMessage}
-                  onTyping={sendTypingStatus}
-                  placeholder={`Message ${selectedUser.firstName}...`}
-                />
+                <MessageInput onSend={sendMessage} onTyping={sendTypingStatus} placeholder={`Message ${selectedUser.firstName}...`} />
               </>
             ) : (
-              <div style={{
-                flex: 1,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}>
-                <EmptyState
-                  icon={<MessageCircle size={56} strokeWidth={1} />}
-                  title="Select a Conversation"
-                  description="Choose someone from your contacts to start messaging."
-                />
+              <div className="flex-1 flex items-center justify-center">
+                <div className="flex flex-col items-center gap-2" style={{ color: "var(--notion-text-muted)" }}>
+                  <MessageCircle size={24} strokeWidth={1} />
+                  <span className="text-[11px] tracking-widest uppercase">Select a conversation</span>
+                  <span className="text-[12px]" style={{ color: "var(--notion-text-secondary)" }}>Choose someone from your contacts to start messaging.</span>
+                </div>
               </div>
             )}
           </div>
         </div>
       </PageContainer>
 
-      {/* Group Create Modal */}
-      <GroupCreateModal
-        isOpen={showGroupModal}
-        onClose={() => setShowGroupModal(false)}
-        onGroupCreated={() => {
-          refreshConversations();
-        }}
-      />
+      <GroupCreateModal isOpen={showGroupModal} onClose={() => setShowGroupModal(false)} onGroupCreated={() => { refreshConversations(); }} />
     </>
   );
 }

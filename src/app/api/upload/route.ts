@@ -19,7 +19,6 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 export async function POST(request: Request) {
     try {
         const session = await auth();
-        console.log("Upload: Session verified", { userId: session?.user?.id });
 
         if (!session?.user?.id) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -27,7 +26,6 @@ export async function POST(request: Request) {
 
         const formData = await request.formData();
         const file = formData.get("file") as File | null;
-        console.log("Upload: File received", { name: file?.name, type: file?.type, size: file?.size });
 
         if (!file) {
             return NextResponse.json({ error: "No file provided" }, { status: 400 });
@@ -49,18 +47,22 @@ export async function POST(request: Request) {
             );
         }
 
-        // Convert file to buffer
-        console.log("Upload: Reading buffer...");
+        // Validate file content matches declared type (magic bytes check)
         const bytes = await file.arrayBuffer();
         const buffer = Buffer.from(bytes);
-        console.log("Upload: Buffer read, size:", buffer.length);
+        const header = buffer.slice(0, 4);
+        const isValidContent = validateFileContent(header, file.type);
+        if (!isValidContent) {
+            return NextResponse.json(
+                { error: "File content does not match declared type" },
+                { status: 400 }
+            );
+        }
 
         // Upload to R2
         try {
-            console.log("Upload: Calling uploadToR2...");
-            const url = await uploadToR2(buffer, file.name, file.type);
-            console.log("Upload: Success, URL:", url);
-
+                const url = await uploadToR2(buffer, file.name, file.type);
+    
             return NextResponse.json({
                 url,
                 filename: file.name,
@@ -83,4 +85,21 @@ export async function POST(request: Request) {
         console.error("Error uploading file:", error);
         return NextResponse.json({ error: "Failed to upload file" }, { status: 500 });
     }
+}
+
+
+function validateFileContent(header: Buffer, mimeType: string): boolean {
+    // Check magic bytes for common file types
+    const hex = header.toString('hex').toLowerCase();
+    
+    if (mimeType.startsWith('image/jpeg') && hex.startsWith('ffd8ff')) return true;
+    if (mimeType === 'image/png' && hex.startsWith('89504e47')) return true;
+    if (mimeType === 'image/gif' && (hex.startsWith('47494638'))) return true;
+    if (mimeType === 'image/webp' && header.toString('ascii', 0, 4) === 'RIFF') return true;
+    if (mimeType === 'application/pdf' && hex.startsWith('25504446')) return true;
+    if (mimeType === 'text/plain') return true; // Text files don't have reliable magic bytes
+    // For DOCX (ZIP-based), check PK header
+    if (mimeType.includes('word') && hex.startsWith('504b0304')) return true;
+    
+    return false;
 }

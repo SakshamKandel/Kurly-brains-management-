@@ -20,36 +20,40 @@ export default function DashboardPrefetcher() {
 
     // These hooks will only run when shouldFetch is true
     // We pass null to useSWR when false to disable it
+    // 1. Dashboard Data (Critical for "Blink" speed on back navigation)
+    useSWR(shouldFetch ? "/api/admin/stats" : null, fetcher, {
+        revalidateOnFocus: false,
+        dedupingInterval: 60000,
+    });
+
+    useSWR(shouldFetch ? "/api/tasks?limit=5" : null, fetcher, {
+        revalidateOnFocus: false,
+        dedupingInterval: 60000,
+    });
+
+    // 2. Main Sections (Prefetch for instant navigation)
     useSWR(shouldFetch ? "/api/tasks" : null, fetcher, {
-        revalidateOnFocus: false, // Don't aggressive refetch
-        focusThrottleInterval: 300000, // 5 mins
-        dedupingInterval: 60000, // 1 min dedupe
+        revalidateOnFocus: false,
+        dedupingInterval: 60000,
     });
 
     useSWR(shouldFetch ? "/api/credentials" : null, fetcher, {
         revalidateOnFocus: false,
-        focusThrottleInterval: 300000,
+        dedupingInterval: 60000,
+    });
+
+    useSWR(shouldFetch ? "/api/invoices" : null, fetcher, {
+        revalidateOnFocus: false,
         dedupingInterval: 60000,
     });
 
     useSWR(shouldFetch ? "/api/conversations" : null, fetcher, {
         revalidateOnFocus: false,
-        focusThrottleInterval: 300000,
         dedupingInterval: 60000,
     });
 
-    // Phase 2: Other Data (Directory, Attendance, Leaves, Announcements)
+    // 3. Secondary Data
     useSWR(shouldFetch ? "/api/users" : null, fetcher, {
-        revalidateOnFocus: false,
-        dedupingInterval: 60000,
-    });
-
-    useSWR(shouldFetch ? "/api/attendance" : null, fetcher, {
-        revalidateOnFocus: false,
-        dedupingInterval: 60000,
-    });
-
-    useSWR(shouldFetch ? "/api/leaves" : null, fetcher, {
         revalidateOnFocus: false,
         dedupingInterval: 60000,
     });

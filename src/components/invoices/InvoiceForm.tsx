@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useSWRConfig } from "swr";
 import { ArrowLeft, Plus, Trash2, Save, Printer, User, Calendar, FileText, AlertCircle, Hash, Mail, MapPin } from "lucide-react";
 import Link from "next/link";
 
@@ -18,6 +19,7 @@ interface InvoiceFormProps {
 
 export default function InvoiceForm({ initialData, isEditing = false }: InvoiceFormProps) {
     const router = useRouter();
+    const { mutate } = useSWRConfig();
 
     // Client Info (Manual Entry)
     const [clientName, setClientName] = useState(initialData?.client?.name || initialData?.clientName || "");
@@ -105,41 +107,54 @@ export default function InvoiceForm({ initialData, isEditing = false }: InvoiceF
     const handleSave = async (status: string = "DRAFT") => {
         if (!validateForm()) return;
 
-        setIsSaving(true);
-        try {
-            const url = isEditing ? `/api/invoices/${initialData.id}` : "/api/invoices";
-            const method = isEditing ? "PUT" : "POST";
+        const payload = {
+            clientName,
+            clientEmail,
+            clientAddress,
+            issueDate,
+            dueDate: dueDate || null,
+            items: items.filter(item => item.description.trim()),
+            status,
+            notes,
+            billedByName,
+            billedByPosition,
+            taxRate: taxRate / 100,
+        };
 
+        // Optimistic navigation — go to list immediately
+        const tempId = `temp-${Date.now()}`;
+        if (!isEditing) {
+            mutate("/api/invoices", (current: any[] = []) => [
+                ...current,
+                {
+                    id: tempId,
+                    invoiceNumber: "saving...",
+                    client: { name: clientName, email: clientEmail },
+                    issueDate,
+                    status,
+                    total,
+                },
+            ], false);
+        }
+        router.push("/dashboard/invoices");
+
+        const url = isEditing ? `/api/invoices/${initialData.id}` : "/api/invoices";
+        const method = isEditing ? "PUT" : "POST";
+        try {
             const res = await fetch(url, {
                 method,
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    clientName,
-                    clientEmail,
-                    clientAddress,
-                    issueDate,
-                    dueDate: dueDate || null,
-                    items: items.filter(item => item.description.trim()),
-                    status: isEditing ? status /* keep existing or update? rely on func arg */ : status,
-                    notes,
-                    billedByName,
-                    billedByPosition,
-                    taxRate: taxRate / 100
-                })
+                body: JSON.stringify(payload),
             });
-
-            if (res.ok) {
-                router.push("/dashboard/invoices");
-                router.refresh();
-            } else {
+            if (!res.ok) {
                 const data = await res.json();
                 setValidationError(data.error || "Failed to save invoice");
             }
         } catch (e) {
             console.error(e);
-            setValidationError("Network error. Please try again.");
         } finally {
-            setIsSaving(false);
+            // Reconcile with real server data
+            mutate("/api/invoices");
         }
     };
 

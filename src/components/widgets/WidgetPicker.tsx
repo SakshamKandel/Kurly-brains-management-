@@ -64,7 +64,7 @@ export default function WidgetPicker({
                         width: "100%",
                         maxWidth: "480px",
                         backgroundColor: "var(--notion-bg)",
-                        borderRadius: "12px",
+                        borderRadius: "var(--radius-md)",
                         boxShadow: "0 24px 48px rgba(0, 0, 0, 0.3), 0 0 0 1px var(--notion-border)",
                         overflow: "hidden",
                     }}
@@ -78,7 +78,7 @@ export default function WidgetPicker({
                         borderBottom: "1px solid var(--notion-divider)",
                     }}>
                         <div>
-                            <div style={{ fontSize: "14px", fontWeight: 600, color: "var(--notion-text)" }}>
+                            <div style={{ fontSize: "14px", fontWeight: 700, color: "var(--notion-text)" }}>
                                 Widget Gallery
                             </div>
                             <div style={{ fontSize: "12px", color: "var(--notion-text-muted)" }}>
@@ -118,7 +118,7 @@ export default function WidgetPicker({
                                     key={widget.id}
                                     style={{
                                         padding: "16px",
-                                        borderRadius: "8px",
+                                        borderRadius: "var(--radius-md)",
                                         border: `1px solid ${isActive ? "var(--notion-blue)" : "var(--notion-border)"}`,
                                         backgroundColor: isActive ? "var(--notion-blue-bg)" : "var(--notion-bg-secondary)",
                                         cursor: "pointer",

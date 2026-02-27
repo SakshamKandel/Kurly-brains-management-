@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import Link from "next/link";
@@ -35,6 +35,12 @@ export default function NavItem({
     const pathname = usePathname();
     const { favorites, toggleFavorite } = useSidebar();
     const isFavorite = favorites.includes(id);
+    const [isMounted, setIsMounted] = useState(false);
+
+    // Only enable dnd-kit after client mount to prevent hydration mismatch
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
 
     const isActive = href === "/dashboard"
         ? pathname === "/dashboard"
@@ -49,15 +55,18 @@ export default function NavItem({
         isDragging,
     } = useSortable({
         id,
-        disabled: !isDraggable,
+        disabled: !isDraggable || !isMounted,
     });
 
-    const style = {
+    // Only apply dnd-kit styles after mount
+    const style = isMounted ? {
         transform: CSS.Transform.toString(transform),
         transition,
         opacity: isDragging ? 0.5 : 1,
         zIndex: isDragging ? 100 : "auto",
         cursor: isDraggable ? "grab" : "default",
+    } : {
+        position: "relative" as const,
     };
 
     const handleFavoriteClick = (e: React.MouseEvent) => {
@@ -81,13 +90,14 @@ export default function NavItem({
     return (
         <SidebarHoverPreview itemId={id} isCollapsed={isCollapsed}>
             <div
-                ref={setNodeRef}
+                ref={isMounted ? setNodeRef : undefined}
                 style={style as React.CSSProperties}
-                {...attributes}
-                {...listeners}
+                {...(isMounted ? attributes : {})}
+                {...(isMounted ? listeners : {})}
                 className="nav-item-wrapper"
                 onMouseEnter={handleMouseEnter}
                 onMouseLeave={() => setIsHovered(false)}
+                suppressHydrationWarning={true}
             >
                 <Link
                     href={href}

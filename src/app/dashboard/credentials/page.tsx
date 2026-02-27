@@ -9,7 +9,7 @@ import { Card } from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
 import ConfirmationModal from "@/components/ui/ConfirmationModal";
-import { toast } from "sonner"; // Assuming sonner is installed from previous step
+import { toast } from "sonner";
 
 interface ClientCredential {
     id: string;
@@ -38,12 +38,18 @@ interface NewCredentialForm {
     visibility: "PRIVATE" | "TEAM" | "PUBLIC";
 }
 
-// Minimal User interface for the dropdown
-interface User {
-    id: string;
-    firstName: string;
-    lastName: string;
-    email: string;
+interface User { id: string; firstName: string; lastName: string; email: string; }
+
+/* ─── Section Header ─── */
+function SectionHeader({ title, trailing }: { title: string; trailing?: string }) {
+    return (
+        <div className="flex items-center gap-3 mb-5">
+            <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: "var(--brand-blue)" }} />
+            <h3 className="text-[10px] font-bold uppercase tracking-[0.35em]" style={{ color: "var(--notion-text-secondary)" }}>{title}</h3>
+            <div className="flex-1 h-px" style={{ background: "var(--notion-border)" }} />
+            {trailing && <span className="text-[9px] font-mono tracking-widest uppercase opacity-40" style={{ color: "var(--notion-text-secondary)" }}>{trailing}</span>}
+        </div>
+    );
 }
 
 export default function CredentialsPage() {
@@ -54,22 +60,11 @@ export default function CredentialsPage() {
     const loading = !credentialsData && !error;
 
     const [visiblePasswords, setVisiblePasswords] = useState<Set<string>>(new Set());
-
-    // Add Credential State (Admin/Manager/SuperAdmin only)
     const [showModal, setShowModal] = useState(false);
     const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
-
-    const [users, setUsers] = useState<User[]>([]); // To populate assignee dropdown
+    const [users, setUsers] = useState<User[]>([]);
     const [newCredential, setNewCredential] = useState<NewCredentialForm>({
-        clientName: "",
-        serviceName: "",
-        username: "",
-        password: "",
-        apiKey: "",
-        url: "",
-        notes: "",
-        assignedToId: "",
-        visibility: "PRIVATE",
+        clientName: "", serviceName: "", username: "", password: "", apiKey: "", url: "", notes: "", assignedToId: "", visibility: "PRIVATE",
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [formError, setFormError] = useState("");
@@ -77,110 +72,77 @@ export default function CredentialsPage() {
     const userRole = session?.user?.role;
     const canCreate = userRole === "ADMIN" || userRole === "MANAGER" || userRole === "SUPER_ADMIN";
 
-    useEffect(() => {
-        if (canCreate) {
-            fetchUsers();
-        }
-    }, [canCreate]);
+    useEffect(() => { if (canCreate) fetchUsers(); }, [canCreate]);
 
     const fetchUsers = async () => {
-        try {
-            const res = await fetch("/api/users");
-            if (res.ok) {
-                const data = await res.json();
-                setUsers(data);
-            }
-        } catch (e) {
-            console.error("Failed users fetch", e);
-        }
+        try { const res = await fetch("/api/users"); if (res.ok) setUsers(await res.json()); }
+        catch (e) { console.error("Failed users fetch", e); }
     };
 
     const togglePasswordVisibility = (id: string) => {
-        setVisiblePasswords(prev => {
-            const next = new Set(prev);
-            if (next.has(id)) next.delete(id);
-            else next.add(id);
-            return next;
-        });
+        setVisiblePasswords(prev => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
     };
 
-    const handleDelete = (id: string) => {
-        setConfirmDeleteId(id);
-    };
+    const handleDelete = (id: string) => setConfirmDeleteId(id);
 
     const executeDelete = async (id: string) => {
-        // Optimistic update
         mutate(credentials.filter(c => c.id !== id), false);
         try {
             const res = await fetch(`/api/credentials?id=${id}`, { method: "DELETE" });
-            if (res.ok) {
-                mutate(); // Revalidate
-                toast.success("Credential deleted");
-            } else {
-                mutate(); // Revert
-                toast.error("Failed to delete credential");
-            }
-        } catch (error) {
-            mutate();
-            console.error("Error deleting credential:", error);
-            toast.error("An error occurred");
-        } finally {
-            setConfirmDeleteId(null);
-        }
+            if (res.ok) { mutate(); toast.success("Credential deleted"); }
+            else { mutate(); toast.error("Failed to delete credential"); }
+        } catch (error) { mutate(); console.error(error); toast.error("An error occurred"); }
+        finally { setConfirmDeleteId(null); }
     };
 
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault();
         setFormError("");
-        setIsSubmitting(true);
+        const assignee = users.find(u => u.id === newCredential.assignedToId);
+        const nameParts = (session?.user?.name || "").split(" ");
+        const tempCred: ClientCredential = {
+            id: `temp-${Date.now()}`,
+            ...newCredential,
+            assignedTo: assignee || { id: "", firstName: "Unknown", lastName: "", email: "" },
+            createdBy: { id: session?.user?.id || "", firstName: nameParts[0] || "", lastName: nameParts.slice(1).join(" ") || "" },
+            createdAt: new Date().toISOString(),
+        };
+        mutate([...credentials, tempCred], false);
+        setShowModal(false);
+        setNewCredential({ clientName: "", serviceName: "", username: "", password: "", apiKey: "", url: "", notes: "", assignedToId: "", visibility: "PRIVATE" });
+        toast.success("Credential created");
 
         try {
-            const res = await fetch("/api/credentials", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(newCredential),
-            });
-
-            if (!res.ok) {
-                const data = await res.json();
-                throw new Error(data.error || "Failed");
-            }
-
-            mutate(); // Revalidate
-            setShowModal(false);
-            setNewCredential({
-                clientName: "", serviceName: "", username: "", password: "", apiKey: "", url: "", notes: "", assignedToId: "", visibility: "PRIVATE"
-            });
-            toast.success("Credential created");
+            const res = await fetch("/api/credentials", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(newCredential) });
+            if (!res.ok) { const data = await res.json(); throw new Error(data.error || "Failed"); }
+            mutate();
         } catch (err: any) {
+            mutate(); // revert
             setFormError(err.message);
             toast.error(err.message);
-        } finally {
-            setIsSubmitting(false);
         }
     };
 
+    const inputStyle: React.CSSProperties = {
+        width: "100%", padding: "8px 12px", borderRadius: "2px",
+        border: "1px solid var(--notion-border)", backgroundColor: "var(--notion-bg)", fontSize: "14px", color: "var(--notion-text)", outline: "none",
+    };
+
+    const labelStyle: React.CSSProperties = {
+        display: "block", marginBottom: "6px", fontSize: "11px", fontWeight: 600,
+        color: "var(--notion-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em",
+    };
+
     if (loading) {
-        return <PageContainer><div style={{ padding: 48, textAlign: 'center', color: 'var(--notion-text-muted)' }}>Loading credentials...</div></PageContainer>;
+        return (
+            <PageContainer>
+                <div className="flex flex-col items-center justify-center py-32 gap-2" style={{ color: "var(--notion-text-muted)" }}>
+                    <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: "var(--brand-blue)" }} />
+                    <span className="text-[11px] tracking-widest uppercase">Loading credentials</span>
+                </div>
+            </PageContainer>
+        );
     }
-
-    const inputStyle = {
-        width: "100%",
-        padding: "8px 12px",
-        borderRadius: "4px",
-        border: "1px solid var(--notion-border)",
-        backgroundColor: "var(--notion-bg)",
-        fontSize: "14px",
-        color: "var(--notion-text)",
-    };
-
-    const labelStyle = {
-        display: "block",
-        marginBottom: "6px",
-        fontSize: "13px",
-        fontWeight: 500,
-        color: "var(--notion-text-secondary)",
-    };
 
     return (
         <PageContainer
@@ -190,181 +152,127 @@ export default function CredentialsPage() {
                 canCreate && (
                     <button
                         onClick={() => setShowModal(true)}
-                        style={{
-                            display: 'flex', alignItems: 'center', gap: '6px',
-                            padding: '6px 12px',
-                            backgroundColor: 'var(--notion-blue)', color: 'white',
-                            borderRadius: 'var(--radius-sm)', fontSize: '13px',
-                            border: 'none', cursor: 'pointer', fontWeight: 500
-                        }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.1em] border-none cursor-pointer"
+                        style={{ background: "var(--brand-blue)", color: "white", borderRadius: "2px" }}
                     >
-                        <Plus size={14} />
+                        <Plus size={12} />
                         Add New
                     </button>
                 )
             }
         >
+            <div className="mt-4">
+                <SectionHeader title="Vault" trailing={`${credentials.length} credentials`} />
+            </div>
+
             {credentials.length === 0 ? (
-                <div style={{
-                    border: '1px solid var(--notion-border)',
-                    borderRadius: 'var(--radius-sm)',
-                    padding: '48px',
-                    textAlign: 'center',
-                    color: 'var(--notion-text-muted)'
-                }}>
-                    No credentials found. {canCreate ? "Add one to get started." : "Ask your admin to assign one to you."}
+                <div className="flex flex-col items-center justify-center py-20 gap-2" style={{ color: "var(--notion-text-muted)" }}>
+                    <Key size={20} strokeWidth={1} />
+                    <span className="text-[11px] tracking-widest uppercase">No credentials found</span>
+                    <span className="text-[12px]" style={{ color: "var(--notion-text-secondary)" }}>
+                        {canCreate ? "Add one to get started." : "Ask your admin to assign one to you."}
+                    </span>
                 </div>
             ) : (
-                <div style={{ display: 'grid', gap: '16px' }}>
+                <div className="flex flex-col gap-3">
                     {credentials.map(cred => (
-                        <Card key={cred.id} padding="md">
-                            <div className="responsive-stack" style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                <div style={{ flex: 1 }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                                        <span style={{ fontWeight: 600, fontSize: '16px', color: 'var(--notion-text)' }}>{cred.clientName}</span>
+                        <div
+                            key={cred.id}
+                            className="group/cred relative overflow-hidden transition-all duration-300 hover:bg-[var(--notion-bg-tertiary)]"
+                            style={{ background: "var(--notion-bg-secondary)", border: "1px solid var(--notion-border)", borderRadius: "2px" }}
+                        >
+                            {/* Lock accent */}
+                            <div className="absolute left-0 top-0 bottom-0 w-[2px]" style={{ background: "var(--brand-blue)" }} />
+
+                            <div className="px-5 py-4 pl-6">
+                                <div className="flex items-start justify-between gap-3 mb-3">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <span className="text-[14px] font-semibold" style={{ color: "var(--notion-text)" }}>{cred.clientName}</span>
                                         <Badge variant="info" size="sm">{cred.serviceName}</Badge>
                                         {cred.visibility !== 'PRIVATE' && <Badge variant="warning" size="sm">{cred.visibility}</Badge>}
                                     </div>
+                                    {canCreate && (
+                                        <button
+                                            onClick={() => handleDelete(cred.id)}
+                                            className="p-1 bg-transparent border-none cursor-pointer opacity-0 group-hover/cred:opacity-100 transition-opacity"
+                                            style={{ color: "var(--notion-red)" }}
+                                        >
+                                            <Trash2 size={13} />
+                                        </button>
+                                    )}
+                                </div>
 
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px', fontSize: '13px' }}>
-                                        {cred.username && (
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                                <span style={{ color: 'var(--notion-text-muted)', fontSize: '11px', textTransform: 'uppercase' }}>Username</span>
-                                                <span style={{ fontFamily: 'monospace', background: 'var(--notion-bg-secondary)', padding: '2px 6px', borderRadius: '4px' }}>{cred.username}</span>
-                                            </div>
-                                        )}
-
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                            <span style={{ color: 'var(--notion-text-muted)', fontSize: '11px', textTransform: 'uppercase' }}>Password</span>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                <span style={{ fontFamily: 'monospace', background: 'var(--notion-bg-secondary)', padding: '2px 6px', borderRadius: '4px' }}>
-                                                    {visiblePasswords.has(cred.id) ? cred.password : '••••••••••••'}
-                                                </span>
-                                                <button onClick={() => togglePasswordVisibility(cred.id)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--notion-text-secondary)' }}>
-                                                    {visiblePasswords.has(cred.id) ? <EyeOff size={14} /> : <Eye size={14} />}
-                                                </button>
-                                            </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                    {cred.username && (
+                                        <div className="flex flex-col gap-1">
+                                            <span className="text-[10px] font-bold uppercase tracking-[0.15em]" style={{ color: "var(--notion-text-muted)" }}>Username</span>
+                                            <span className="font-mono text-[12px] px-2 py-1" style={{ background: "var(--notion-bg-tertiary)", borderRadius: "2px", color: "var(--notion-text)" }}>{cred.username}</span>
                                         </div>
-
-                                        {cred.url && (
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                                <span style={{ color: 'var(--notion-text-muted)', fontSize: '11px', textTransform: 'uppercase' }}>URL</span>
-                                                <a href={cred.url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--notion-blue)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                    {cred.url}
-                                                    <Globe size={12} />
-                                                </a>
-                                            </div>
-                                        )}
+                                    )}
+                                    <div className="flex flex-col gap-1">
+                                        <span className="text-[10px] font-bold uppercase tracking-[0.15em]" style={{ color: "var(--notion-text-muted)" }}>Password</span>
+                                        <div className="flex items-center gap-2">
+                                            <span className="font-mono text-[12px] px-2 py-1" style={{ background: "var(--notion-bg-tertiary)", borderRadius: "2px", color: "var(--notion-text)" }}>
+                                                {visiblePasswords.has(cred.id) ? cred.password : '••••••••••••'}
+                                            </span>
+                                            <button onClick={() => togglePasswordVisibility(cred.id)} className="p-0.5 border-none bg-transparent cursor-pointer transition-colors hover:text-[var(--brand-blue)]" style={{ color: "var(--notion-text-secondary)" }}>
+                                                {visiblePasswords.has(cred.id) ? <EyeOff size={13} /> : <Eye size={13} />}
+                                            </button>
+                                        </div>
                                     </div>
-
-                                    {cred.notes && (
-                                        <div style={{ marginTop: '12px', fontSize: '13px', color: 'var(--notion-text-secondary)', fontStyle: 'italic' }}>
-                                            {cred.notes}
+                                    {cred.url && (
+                                        <div className="flex flex-col gap-1">
+                                            <span className="text-[10px] font-bold uppercase tracking-[0.15em]" style={{ color: "var(--notion-text-muted)" }}>URL</span>
+                                            <a href={cred.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-[12px] hover:text-[var(--brand-blue)] transition-colors" style={{ color: "var(--notion-blue)" }}>
+                                                {cred.url} <Globe size={10} />
+                                            </a>
                                         </div>
                                     )}
                                 </div>
 
-                                {canCreate && (
-                                    <button
-                                        onClick={() => handleDelete(cred.id)}
-                                        style={{ padding: '6px', color: 'var(--notion-red)', background: 'transparent', border: 'none', cursor: 'pointer', opacity: 0.6 }}
-                                        className="hover-opacity"
-                                    >
-                                        <Trash2 size={16} />
-                                    </button>
+                                {cred.notes && (
+                                    <div className="mt-3 text-[12px] italic" style={{ color: "var(--notion-text-secondary)" }}>{cred.notes}</div>
                                 )}
                             </div>
-                        </Card>
+                        </div>
                     ))}
                 </div>
             )}
 
-            {/* Create Modal */}
+            {/* ═══ Create Modal ═══ */}
             <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="Add Client Credential">
-                <form onSubmit={handleCreate} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <form onSubmit={handleCreate} className="flex flex-col gap-4">
                     {formError && (
-                        <div style={{ padding: '8px 12px', backgroundColor: 'var(--notion-red-bg)', color: 'var(--notion-red)', borderRadius: '4px', fontSize: '13px' }}>
-                            {formError}
-                        </div>
+                        <div className="px-3 py-2 text-[12px]" style={{ background: "rgba(235, 87, 87, 0.1)", color: "var(--notion-red)", borderRadius: "2px" }}>{formError}</div>
                     )}
-
                     <div className="responsive-grid-2">
-                        <div>
-                            <label style={labelStyle}>Client Name *</label>
-                            <input required type="text" value={newCredential.clientName} onChange={e => setNewCredential({ ...newCredential, clientName: e.target.value })} style={inputStyle} placeholder="e.g. Acme Corp" />
-                        </div>
-                        <div>
-                            <label style={labelStyle}>Service *</label>
-                            <input required type="text" value={newCredential.serviceName} onChange={e => setNewCredential({ ...newCredential, serviceName: e.target.value })} style={inputStyle} placeholder="e.g. AWS, WordPress" />
-                        </div>
+                        <div><label style={labelStyle}>Client Name *</label><input required type="text" value={newCredential.clientName} onChange={e => setNewCredential({ ...newCredential, clientName: e.target.value })} style={inputStyle} placeholder="e.g. Acme Corp" /></div>
+                        <div><label style={labelStyle}>Service *</label><input required type="text" value={newCredential.serviceName} onChange={e => setNewCredential({ ...newCredential, serviceName: e.target.value })} style={inputStyle} placeholder="e.g. AWS, WordPress" /></div>
                     </div>
-
                     <div className="responsive-grid-2">
-                        <div>
-                            <label style={labelStyle}>Username</label>
-                            <input type="text" value={newCredential.username} onChange={e => setNewCredential({ ...newCredential, username: e.target.value })} style={inputStyle} />
-                        </div>
-                        <div>
-                            <label style={labelStyle}>Password *</label>
-                            <input required type="text" value={newCredential.password} onChange={e => setNewCredential({ ...newCredential, password: e.target.value })} style={inputStyle} />
-                        </div>
+                        <div><label style={labelStyle}>Username</label><input type="text" value={newCredential.username} onChange={e => setNewCredential({ ...newCredential, username: e.target.value })} style={inputStyle} /></div>
+                        <div><label style={labelStyle}>Password *</label><input required type="text" value={newCredential.password} onChange={e => setNewCredential({ ...newCredential, password: e.target.value })} style={inputStyle} /></div>
                     </div>
-
-                    <div>
-                        <label style={labelStyle}>Login URL</label>
-                        <input type="url" value={newCredential.url} onChange={e => setNewCredential({ ...newCredential, url: e.target.value })} style={inputStyle} placeholder="https://..." />
-                    </div>
-
-                    <div>
-                        <label style={labelStyle}>Assigned To</label>
-                        <select
-                            value={newCredential.assignedToId}
-                            onChange={e => setNewCredential({ ...newCredential, assignedToId: e.target.value })}
-                            style={inputStyle}
-                        // Not required if Public/Team (handled by backend fallback)
-                        >
-                            <option value="">{newCredential.visibility === 'PRIVATE' ? "Select staff..." : "Everyone (Auto-assign to me)"}</option>
-                            {users.map(u => (
-                                <option key={u.id} value={u.id}>{u.firstName} {u.lastName}</option>
-                            ))}
-                        </select>
-                    </div>
-
-                    <div>
-                        <label style={labelStyle}>Visibility</label>
-                        <select value={newCredential.visibility} onChange={e => setNewCredential({ ...newCredential, visibility: e.target.value as any })} style={inputStyle}>
-                            <option value="PRIVATE">Private (Selected User Only)</option>
-                            <option value="PUBLIC">Public (Everyone)</option>
-                            <option value="TEAM">Team</option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label style={labelStyle}>Notes</label>
-                        <textarea value={newCredential.notes} onChange={e => setNewCredential({ ...newCredential, notes: e.target.value })} style={{ ...inputStyle, minHeight: '80px', resize: 'vertical' }} />
-                    </div>
-
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '8px' }}>
-                        <button type="button" onClick={() => setShowModal(false)} style={{ padding: '8px 12px', background: 'transparent', border: 'none', cursor: 'pointer' }}>Cancel</button>
-                        <button type="submit" disabled={isSubmitting} style={{ padding: '8px 16px', backgroundColor: 'var(--notion-blue)', color: 'white', borderRadius: '4px', border: 'none', cursor: 'pointer', opacity: isSubmitting ? 0.7 : 1 }}>
+                    <div><label style={labelStyle}>Login URL</label><input type="url" value={newCredential.url} onChange={e => setNewCredential({ ...newCredential, url: e.target.value })} style={inputStyle} placeholder="https://..." /></div>
+                    <div><label style={labelStyle}>Assigned To</label><select value={newCredential.assignedToId} onChange={e => setNewCredential({ ...newCredential, assignedToId: e.target.value })} style={inputStyle}><option value="">{newCredential.visibility === 'PRIVATE' ? "Select staff..." : "Everyone (Auto-assign to me)"}</option>{users.map(u => (<option key={u.id} value={u.id}>{u.firstName} {u.lastName}</option>))}</select></div>
+                    <div><label style={labelStyle}>Visibility</label><select value={newCredential.visibility} onChange={e => setNewCredential({ ...newCredential, visibility: e.target.value as any })} style={inputStyle}><option value="PRIVATE">Private (Selected User Only)</option><option value="PUBLIC">Public (Everyone)</option><option value="TEAM">Team</option></select></div>
+                    <div><label style={labelStyle}>Notes</label><textarea value={newCredential.notes} onChange={e => setNewCredential({ ...newCredential, notes: e.target.value })} style={{ ...inputStyle, minHeight: '80px', resize: 'vertical' }} /></div>
+                    <div className="flex justify-end gap-3 mt-2">
+                        <button type="button" onClick={() => setShowModal(false)} className="px-3 py-2 text-[13px] border-none bg-transparent cursor-pointer" style={{ color: "var(--notion-text-secondary)" }}>Cancel</button>
+                        <button type="submit" disabled={isSubmitting} className="px-4 py-2 text-[13px] border-none cursor-pointer" style={{ background: "var(--brand-blue)", color: "white", borderRadius: "2px", opacity: isSubmitting ? 0.7 : 1 }}>
                             {isSubmitting ? "Creating..." : "Create Credential"}
                         </button>
                     </div>
                 </form>
             </Modal>
 
-            {/* Custom AI Confirmation Modal */}
             <ConfirmationModal
                 isOpen={!!confirmDeleteId}
                 title="Delete Credential?"
                 message="Are you sure you want to delete this credential? This action cannot be undone."
                 confirmText="Yes, delete it"
                 isDangerous={true}
-                onConfirm={() => {
-                    if (confirmDeleteId) {
-                        executeDelete(confirmDeleteId);
-                    }
-                }}
+                onConfirm={() => { if (confirmDeleteId) executeDelete(confirmDeleteId); }}
                 onCancel={() => setConfirmDeleteId(null)}
             />
         </PageContainer>

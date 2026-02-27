@@ -87,7 +87,7 @@ export default function ActionStream() {
                             className={`
                                 group relative p-4 rounded-lg border transition-all duration-200
                                 ${item.severity === 'high'
-                                    ? 'bg-[var(--notion-red-bg)]/10 border-[var(--notion-red-bg)] hover:shadow-md'
+                                    ? 'bg-[var(--notion-red-bg)]/10 border-[var(--notion-red-bg)] hover:shadow-glow shadow-[var(--notion-red-bg)] animate-pulse-slow'
                                     : 'bg-[var(--notion-bg)] border-[var(--notion-border)] hover:border-[var(--notion-text-muted)] hover:shadow-sm'
                                 }
                             `}
@@ -96,7 +96,7 @@ export default function ActionStream() {
                                 {/* Icon */}
                                 <div className={`
                                     p-2 rounded-lg shrink-0
-                                    ${item.type === 'leave' ? 'bg-[var(--notion-orange-bg)] text-[var(--notion-orange)]' : ''}
+                                    ${item.type === 'leave' ? 'bg-[var(--notion-blue-bg)] text-[var(--notion-blue)]' : ''}
                                     ${item.type === 'task' ? 'bg-[var(--notion-blue-bg)] text-[var(--notion-blue)]' : ''}
                                     ${item.type === 'invoice' ? 'bg-[var(--notion-green-bg)] text-[var(--notion-green)]' : ''}
                                     ${item.type === 'message' ? 'bg-[var(--notion-purple-bg)] text-[var(--notion-purple)]' : ''}

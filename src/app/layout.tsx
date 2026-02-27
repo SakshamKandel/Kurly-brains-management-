@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Toaster } from "sonner";
+import { SWRProvider } from "@/lib/swr-config";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -56,16 +57,22 @@ export const metadata: Metadata = {
   },
 };
 
+import { Inter } from "next/font/google";
+
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body suppressHydrationWarning={true}>
-        {children}
-        <Toaster richColors position="top-center" />
+    <html lang="en" className={inter.variable} suppressHydrationWarning>
+      <body suppressHydrationWarning className="font-sans">
+        <SWRProvider>
+          {children}
+          <Toaster richColors position="top-center" />
+        </SWRProvider>
       </body>
     </html>
   );

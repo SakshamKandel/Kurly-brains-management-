@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { validatePassword } from "@/lib/validation";
 
 export async function GET() {
     try {
@@ -81,7 +82,7 @@ export async function PUT(request: Request) {
         const body = await request.json();
         const {
             firstName, lastName, phone, department, position, avatar,
-            currentPassword, newPassword, isForceChange
+            currentPassword, newPassword
         } = body;
 
         // Password Update Logic
@@ -95,9 +96,8 @@ export async function PUT(request: Request) {
             }
 
             // Allow password change without current password ONLY if:
-            // 1. User has mustChangePassword flag set (new user first login)
-            // 2. OR isForceChange flag is sent from ForcePasswordChangeModal
-            const isFirstTimeSetup = user.mustChangePassword || isForceChange;
+            // User has mustChangePassword flag set by admin (new user first login)
+            const isFirstTimeSetup = user.mustChangePassword;
 
             if (!isFirstTimeSetup) {
                 // Regular password change - requires current password
@@ -109,6 +109,12 @@ export async function PUT(request: Request) {
                 if (!isValid) {
                     return NextResponse.json({ error: "Incorrect current password" }, { status: 400 });
                 }
+            }
+
+            // Validate password complexity
+            const pwCheck = validatePassword(newPassword);
+            if (!pwCheck.valid) {
+                return NextResponse.json({ error: pwCheck.error }, { status: 400 });
             }
 
             const hashedPassword = await bcrypt.hash(newPassword, 12);

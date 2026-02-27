@@ -4,10 +4,8 @@
 
 :root {
     /* Font Families */
-    /* Oswald kept for Headings as requested for brand identity */
-    --font-heading: 'Oswald', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-
-    /* Inter for Everything Else (Notion Standard) */
+    /* Clean, modern sans-serif for everything to match reference */
+    --font-heading: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     --font-body: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     --font-mono: 'SFMono-Regular', Consolas, "Liberation Mono", Menlo, Courier, monospace;
     --font-hand: 'Kalam', cursive;
@@ -69,13 +67,11 @@ h4,
 h5,
 h6 {
     font-family: var(--font-heading);
-    font-weight: var(--font-bold);
-    letter-spacing: var(--tracking-wide);
+    font-weight: var(--font-medium);
+    letter-spacing: var(--tracking-tight);
     color: var(--notion-text);
     margin-top: 2rem;
     margin-bottom: 0.5rem;
-    text-transform: uppercase;
-    /* Brand preference */
 }
 
 h1 {

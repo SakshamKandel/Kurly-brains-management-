@@ -79,8 +79,8 @@ body {
 
 .notion-content-column {
   width: 100%;
-  max-width: 900px;
-  padding: 32px 96px;
+  max-width: 1100px;
+  padding: 32px 64px;
   padding-bottom: 120px;
 }
 
@@ -415,8 +415,8 @@ body {
 
 .modal {
   background-color: var(--notion-bg-secondary);
-  border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  border-radius: var(--radius-md);
+  box-shadow: 0 0 0 1px var(--notion-border);
   width: 100%;
   animation: modalEnter 0.2s ease-out;
   border: 1px solid var(--notion-border);
@@ -573,7 +573,7 @@ body {
 .btn-primary:hover {
   background-color: rgba(255, 255, 255, 0.95);
   transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: none;
 }
 
 .btn-primary:active {
@@ -766,5 +766,55 @@ body {
 
   .invoice-editor {
     background: white !important;
+  }
+}
+
+/* ============================================
+   PAYSLIP PRINT STYLES
+   ============================================ */
+@media print {
+
+  /* When a payslip modal is present... */
+  body:has(.payslip-print) {
+    background: white !important;
+  }
+
+  /* Hide everything by default */
+  body:has(.payslip-print) * {
+    visibility: hidden;
+  }
+
+  /* Show only the payslip content and its children */
+  body:has(.payslip-print) .payslip-print,
+  body:has(.payslip-print) .payslip-print * {
+    visibility: visible;
+  }
+
+  /* Position the payslip at the top-left */
+  body:has(.payslip-print) .payslip-print {
+    position: fixed !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 24px 40px !important;
+    background: white !important;
+    box-shadow: none !important;
+    border: none !important;
+    z-index: 99999 !important;
+    overflow: visible !important;
+  }
+
+  /* Ensure backgrounds print */
+  body:has(.payslip-print) .payslip-print {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Hide buttons (Print, Close, etc.) inside the payslip */
+  body:has(.payslip-print) .payslip-print button {
+    display: none !important;
   }
 }

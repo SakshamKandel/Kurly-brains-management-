@@ -216,7 +216,7 @@ export function TaskHoverPreview({
     const statusColors: Record<string, string> = {
         TODO: "var(--notion-text-muted)",
         IN_PROGRESS: "var(--notion-blue)",
-        REVIEW: "var(--notion-orange)",
+        REVIEW: "var(--notion-blue)",
         COMPLETED: "var(--notion-green)",
     };
 

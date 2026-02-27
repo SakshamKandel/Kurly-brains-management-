@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Card } from "@/components/ui/Card";
-import { FileText, ArrowRight } from "lucide-react";
+import { FileText, ArrowRight, Activity } from "lucide-react";
 import Badge from "@/components/ui/Badge";
 
 interface InvoicePreview {
@@ -25,7 +24,6 @@ export default function RecentInvoicesWidget() {
                 const res = await fetch("/api/invoices");
                 if (res.ok) {
                     const data = await res.json();
-                    // Take top 5 recent
                     setInvoices(data.slice(0, 5));
                 }
             } catch (error) {
@@ -44,47 +42,37 @@ export default function RecentInvoicesWidget() {
     };
 
     return (
-        <Card>
-            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "16px", color: "var(--notion-text)" }}>
-                <FileText size={18} />
-                <span style={{ fontSize: "14px", fontWeight: 600 }}>Recent Invoices</span>
+        <div className="h-full w-full flex flex-col p-6">
+            <div className="flex items-center gap-3 mb-6">
+                <FileText size={16} className="text-[var(--brand-cyan)]" />
+                <span className="text-[10px] uppercase tracking-[0.25em] font-bold text-[var(--notion-text-secondary)]">
+                    Recent Invoices
+                </span>
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+
+            <div className="flex flex-col gap-2 flex-1 overflow-y-auto">
                 {loading ? (
-                    // Skeletons
                     [1, 2, 3].map(i => (
-                        <div key={i} className="skeleton" style={{ height: "40px", width: "100%", borderRadius: "6px" }} />
+                        <div key={i} className="skeleton h-12 w-full rounded-md opacity-20" />
                     ))
                 ) : invoices.length > 0 ? (
                     invoices.map((inv) => (
-                        <Link key={inv.id} href={`/dashboard/invoices/${inv.id}`} style={{ textDecoration: "none" }}>
-                            <div
-                                className="hover-bg"
-                                style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "space-between",
-                                    padding: "8px 12px",
-                                    borderRadius: "6px",
-                                    border: "1px solid transparent",
-                                    transition: "all 0.1s ease",
-                                    cursor: "pointer"
-                                }}
-                            >
-                                <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-                                    <span style={{ fontSize: "13px", fontWeight: 500, color: "var(--notion-text)" }}>
+                        <Link key={inv.id} href={`/dashboard/invoices/${inv.id}`} className="group no-underline block">
+                            <div className="flex items-center justify-between py-2 px-3 rounded-md transition-all duration-300 hover:bg-[var(--notion-bg-tertiary)] hover:translate-x-1">
+                                <div className="flex flex-col gap-1">
+                                    <span className="text-xs font-medium text-[var(--notion-text)] group-hover:text-[var(--brand-cyan)] transition-colors">
                                         {inv.client?.name || "Unknown Client"}
                                     </span>
-                                    <span style={{ fontSize: "11px", color: "var(--notion-text-muted)" }}>
+                                    <span className="text-[10px] font-mono tracking-widest text-[var(--notion-text-muted)]">
                                         {inv.invoiceNumber}
                                     </span>
                                 </div>
 
-                                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                                    <span style={{ fontSize: "13px", fontWeight: 600, fontFamily: "var(--font-mono)", color: "var(--notion-text)" }}>
+                                <div className="flex items-center gap-4">
+                                    <span className="text-sm font-light font-mono text-[var(--notion-text)]">
                                         ${inv.total.toLocaleString()}
                                     </span>
-                                    <Badge variant={statusColors[inv.status] || "default"} size="sm">
+                                    <Badge variant={statusColors[inv.status] || "default"} size="sm" className="bg-transparent border border-[var(--notion-border)] text-[9px]">
                                         {inv.status}
                                     </Badge>
                                 </div>
@@ -92,17 +80,19 @@ export default function RecentInvoicesWidget() {
                         </Link>
                     ))
                 ) : (
-                    <div style={{ padding: "16px", textAlign: "center", color: "var(--notion-text-muted)", fontSize: "13px", fontStyle: "italic" }}>
-                        No invoices found.
+                    <div className="flex flex-col items-center justify-center h-full gap-3 text-[var(--notion-text-muted)] opacity-50">
+                        <Activity size={20} strokeWidth={1} />
+                        <span className="text-[9px] uppercase tracking-[0.3em] font-semibold">No Invoices Found</span>
                     </div>
                 )}
             </div>
 
-            <div style={{ marginTop: "12px", paddingTop: "12px", borderTop: "1px solid var(--notion-divider)", display: "flex", justifyContent: "flex-end" }}>
-                <Link href="/dashboard/invoices" style={{ fontSize: "12px", color: "var(--notion-text-secondary)", textDecoration: "none", display: "flex", alignItems: "center", gap: "4px" }}>
-                    View all <ArrowRight size={12} />
+            <div className="mt-4 pt-4 border-t border-[var(--notion-border)] flex justify-end">
+                <Link href="/dashboard/invoices" className="group flex flex-row items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-[var(--notion-text-muted)] hover:text-[var(--brand-cyan)] transition-colors no-underline">
+                    View all
+                    <ArrowRight size={12} className="group-hover:translate-x-1 transition-transform" />
                 </Link>
             </div>
-        </Card>
+        </div>
     );
 }

@@ -5,12 +5,12 @@ import { prisma } from "@/lib/prisma";
 export async function GET(request: Request) {
     try {
         const session = await auth();
-        if (!session?.user?.email) {
+        if (!session?.user?.id) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
         const user = await prisma.user.findUnique({
-            where: { email: session.user.email },
+            where: { id: session.user.id },
             select: { id: true, role: true }
         });
 
@@ -44,17 +44,22 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
     try {
         const session = await auth();
-        if (!session?.user?.email) {
+        if (!session?.user?.id) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
         const user = await prisma.user.findUnique({
-            where: { email: session.user.email },
-            select: { id: true }
+            where: { id: session.user.id },
+            select: { id: true, role: true }
         });
 
         if (!user) {
             return NextResponse.json({ error: "User not found" }, { status: 404 });
+        }
+
+        // Only ADMIN, MANAGER, and SUPER_ADMIN can create invoices
+        if (!["ADMIN", "MANAGER", "SUPER_ADMIN"].includes(user.role)) {
+            return NextResponse.json({ error: "Only admins/managers can create invoices" }, { status: 403 });
         }
 
         const body = await request.json();
@@ -112,9 +117,11 @@ export async function POST(request: Request) {
         const taxAmount = subtotal * (taxRate || 0);
         const total = subtotal + taxAmount;
 
-        // Generate Invoice Number
-        const count = await prisma.invoice.count();
-        const invoiceNumber = `INV-${String(count + 1).padStart(4, "0")}`;
+        // Generate unique Invoice Number using timestamp + random suffix
+        const year = new Date().getFullYear();
+        const rand = Math.random().toString(36).substring(2, 6).toUpperCase();
+        const ts = Date.now().toString().slice(-6);
+        const invoiceNumber = `INV-${year}-${ts}-${rand}`;
 
         const invoice = await prisma.invoice.create({
             data: {
